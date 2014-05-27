@@ -36,4 +36,13 @@ def get_access_token
 end
 
 client = DropboxClient.new(get_access_token())
-puts "linked account:", client.account_info().inspect
+info = client.account_info
+puts "Logged in as #{info['display_name']} (#{info['email']})"
+
+def prompt(client, working_dir)
+  print "rubox #{client.account_info['email']}:#{working_dir}> "
+  input = gets.chomp
+end
+
+working_dir = '/'
+prompt(client, working_dir)
