@@ -1,47 +1,11 @@
 #!/usr/bin/env ruby
 
-require 'fileutils'
 require 'dropbox_sdk'
+
+require_relative 'settings'
 
 APP_KEY = '5sufyfrvtro9zp7'
 APP_SECRET = 'h99ihzv86jyypho'
-CONFIG_FILE_PATH = File.expand_path('~/.config/rubox/ruboxrc')
-
-def invalid_setting(line)
-  warn "invalid setting: #{line}"
-  return {}
-end
-
-def parse_setting(line)
-  if /^(.+?)=(.+)$/ =~ line
-    key, value = $1.to_sym, $2
-    case key
-    when :access_token then {key => value}
-    else invalid_setting(line)
-    end
-  else
-    invalid_setting(line)
-  end
-end
-
-def read_settings
-  if File.exists?(CONFIG_FILE_PATH)
-    File.open(CONFIG_FILE_PATH) do |file|
-      file.each_line.reduce({}) { |a, e| a.merge(parse_setting(e.strip)) }
-    end
-  else
-    {}
-  end
-end
-
-def save_settings
-  FileUtils.mkdir_p(File.dirname(CONFIG_FILE_PATH))
-  File.open(CONFIG_FILE_PATH, 'w') do |file|
-    SETTINGS.each_pair { |k, v| file.write("#{k}=#{v}\n") }
-  end
-end
-
-SETTINGS = read_settings()
 
 def authorize
   flow = DropboxOAuth2FlowNoRedirect.new(APP_KEY, APP_SECRET)
@@ -58,18 +22,17 @@ def authorize
   # This will fail if the user gave us an invalid authorization code
   begin
     access_token, user_id = flow.finish(code)
-    SETTINGS[:access_token] = access_token
-    save_settings()
+    Settings[:access_token] = access_token
   rescue DropboxError
     puts 'Invalid authorization code.'
   end
 end
 
 def get_access_token
-  until SETTINGS.include?(:access_token)
+  until Settings.include?(:access_token)
     authorize()
   end
-  SETTINGS[:access_token]
+  Settings[:access_token]
 end
 
 client = DropboxClient.new(get_access_token())
