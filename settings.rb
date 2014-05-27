@@ -18,6 +18,14 @@ class Settings
     @@settings.include?(key)
   end
 
+  def Settings.delete(key)
+    if @@settings.include?(key)
+      value = @@settings.delete(key)
+      save_settings()
+      value
+    end
+  end
+
   private
 
   def Settings.invalid_setting(line)
