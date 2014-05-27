@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 
-require 'pathname'
 require 'dropbox_sdk'
 
+require_relative 'commands'
 require_relative 'settings'
 
 APP_KEY = '5sufyfrvtro9zp7'
@@ -40,45 +40,14 @@ client = DropboxClient.new(get_access_token())
 info = client.account_info
 puts "Logged in as #{info['display_name']} (#{info['email']})"
 
-def cd(path, client)
-  begin
-    path = "#$working_dir/#{path}" unless path.start_with?('/')
-    path.gsub!('//', '/')
-    while path.sub!(/\/([^\/]+?)\/\.\./, '')
-    end
-    path.chomp!('/')
-    path = '/' if path.empty?
-    if client.metadata(path)['is_dir']
-      $working_dir = path
-    else
-      puts 'Not a directory'
-    end
-  rescue DropboxError => error
-    puts 'No such file or directory'
-  end
-end
+State = Struct.new(:working_dir)
+state = State.new('/')
 
-def ls(client)
-  client.metadata($working_dir)['contents'].each do |data|
-    puts Pathname.new(data['path']).basename
-  end
-end
-
-def command(input, client)
-  tokens = input.split
-
-  case tokens[0]
-  when 'cd' then cd(tokens[1], client)
-  when 'ls' then ls(client)
-  else puts "Unrecognized command: #{tokens[0]}"
-  end
-end
-
-def prompt(client, info)
-  print "rubox #{info['email']}:#{$working_dir}> "
+def prompt(client, info, state)
+  print "rubox #{info['email']}:#{state.working_dir}> "
   input = gets
   if input != nil
-    command(input.chomp, client)
+    Commands.exec(input.chomp, client, state)
     true
   else
     puts
@@ -86,10 +55,8 @@ def prompt(client, info)
   end
 end
 
-$working_dir = '/'
-
 begin
-  while prompt(client, info)
+  while prompt(client, info, state)
   end
 rescue Interrupt
   puts
