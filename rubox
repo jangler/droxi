@@ -42,6 +42,12 @@ puts "Logged in as #{info['display_name']} (#{info['email']})"
 
 def cd(path, client)
   begin
+    path = "#$working_dir/#{path}" unless path.start_with?('/')
+    path.gsub!('//', '/')
+    while path.sub!(/\/([^\/]+?)\/\.\./, '')
+    end
+    path.chomp!('/')
+    path = '/' if path.empty?
     if client.metadata(path)['is_dir']
       $working_dir = path
     else
