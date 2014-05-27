@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'dropbox_sdk'
+require 'readline'
 
 require_relative 'commands'
 require_relative 'settings'
@@ -43,21 +44,15 @@ puts "Logged in as #{info['display_name']} (#{info['email']})"
 State = Struct.new(:working_dir)
 state = State.new('/')
 
-def prompt(client, info, state)
-  print "rubox #{info['email']}:#{state.working_dir}> "
-  input = gets
-  if input != nil
-    Commands.exec(input.chomp, client, state)
-    true
-  else
-    puts
-    false
-  end
+def prompt(info, state)
+  "rubox #{info['email']}:#{state.working_dir}> "
 end
 
 begin
-  while prompt(client, info, state)
+  while line = Readline.readline(prompt(info, state), true)
+    Commands.exec(line.chomp, client, state)
   end
+  puts
 rescue Interrupt
   puts
 end
