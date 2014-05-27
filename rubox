@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 
+require 'pathname'
 require 'dropbox_sdk'
 
 require_relative 'settings'
@@ -39,10 +40,38 @@ client = DropboxClient.new(get_access_token())
 info = client.account_info
 puts "Logged in as #{info['display_name']} (#{info['email']})"
 
-def prompt(client, working_dir)
-  print "rubox #{client.account_info['email']}:#{working_dir}> "
-  input = gets.chomp
+def ls(client, working_dir)
+  client.metadata(working_dir)['contents'].each do |data|
+    puts Pathname.new(data['path']).basename
+  end
+end
+
+def command(input, client, working_dir)
+  tokens = input.split
+
+  case tokens[0]
+  when 'ls' then ls(client, working_dir)
+  else puts "Unrecognized command: #{tokens[0]}"
+  end
+end
+
+def prompt(client, info, working_dir)
+  print "rubox #{info['email']}:#{working_dir}> "
+  input = gets
+  if input != nil
+    command(input.chomp, client, working_dir)
+    true
+  else
+    puts
+    false
+  end
 end
 
 working_dir = '/'
-prompt(client, working_dir)
+
+begin
+  while prompt(client, info, working_dir)
+  end
+rescue Interrupt
+  puts
+end
