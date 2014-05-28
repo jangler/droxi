@@ -54,6 +54,8 @@ describe Settings do
     end
 
     it 'must delete the key' do
+      Settings[key] = value
+      Settings.delete(key)
       Settings[key].must_equal nil
     end
   end
