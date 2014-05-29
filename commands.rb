@@ -32,6 +32,15 @@ class Commands
     end
   end
 
+  def Commands.mkdir(path, client, state)
+    path = resolve_path(path, state)
+    begin
+      client.file_create_folder(path)
+    rescue DropboxError => error
+      puts error
+    end
+  end
+
   def Commands.put(path, client, state)
     to_path = resolve_path(File.basename(path), state)
     begin
@@ -64,6 +73,7 @@ class Commands
       when 'cd' then cd(tokens[1], client, state)
       when 'get' then get(tokens[1], client, state)
       when 'ls' then ls(client, state)
+      when 'mkdir' then mkdir(tokens[1], client, state)
       when 'put' then put(tokens[1], client, state)
       else puts "Unrecognized command: #{tokens[0]}"
       end
