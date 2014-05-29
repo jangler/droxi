@@ -34,6 +34,7 @@ describe Settings do
       Settings.delete(key)
       Settings[key] = value
       Settings[key].must_equal value
+      Settings.delete(key)
     end
   end
 
@@ -66,6 +67,7 @@ describe Settings do
     it 'must return true for valid keys' do
       Settings[key] = value
       Settings.include?(key).must_equal true
+      Settings.delete(key)
     end
 
     it 'must return false for bogus keys' do
