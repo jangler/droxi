@@ -1,5 +1,3 @@
-require 'pathname'
-
 class Commands
   def Commands.cd(path, client, state)
     path = resolve_path(path, state)
@@ -18,7 +16,7 @@ class Commands
     path = resolve_path(path, state)
     begin
       contents = client.get_file(path)
-      File.open(Pathname.new(path).basename.to_s, 'wb') do |file|
+      File.open(File.basename(path), 'wb') do |file|
         file.write(contents)
       end
     rescue DropboxError => error
@@ -28,7 +26,7 @@ class Commands
 
   def Commands.ls(client, state)
     client.metadata(state.working_dir)['contents'].each do |data|
-      puts Pathname.new(data['path']).basename
+      puts File.basename(data['path'])
     end
   end
 
