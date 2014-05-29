@@ -2,7 +2,7 @@
 
 require 'minitest/autorun'
 
-require_relative 'settings'
+require_relative '../settings'
 
 describe Settings do
   describe 'when attempting access with a bogus key' do
