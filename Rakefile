@@ -1,7 +1,7 @@
 task :default => :test
 
 task :test do
-  sh 'ruby spec/settings_spec.rb'
+  sh 'ruby spec/all.rb'
 end
 
 task :run do
