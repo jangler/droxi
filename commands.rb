@@ -43,15 +43,30 @@ class Commands
     end
   end
 
-  def Commands.exec(input, client, state)
-    tokens = input.split
+  def Commands.shell(cmd)
+    begin
+      IO.popen(cmd) do |pipe|
+        pipe.each_char { |char| print char }
+      end
+    rescue Interrupt
+    rescue Exception => error
+      puts error
+    end
+  end
 
-    case tokens[0]
-    when 'cd' then cd(tokens[1], client, state)
-    when 'get' then get(tokens[1], client, state)
-    when 'ls' then ls(client, state)
-    when 'put' then put(tokens[1], client, state)
-    else puts "Unrecognized command: #{tokens[0]}"
+  def Commands.exec(input, client, state)
+    if input.start_with?('!')
+      shell(input[1, input.length - 1])
+    elsif not input.empty?
+      tokens = input.split
+
+      case tokens[0]
+      when 'cd' then cd(tokens[1], client, state)
+      when 'get' then get(tokens[1], client, state)
+      when 'ls' then ls(client, state)
+      when 'put' then put(tokens[1], client, state)
+      else puts "Unrecognized command: #{tokens[0]}"
+      end
     end
   end
 
