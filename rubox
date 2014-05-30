@@ -5,6 +5,7 @@ require 'readline'
 
 require_relative 'commands'
 require_relative 'settings'
+require_relative 'state'
 
 APP_KEY = '5sufyfrvtro9zp7'
 APP_SECRET = 'h99ihzv86jyypho'
@@ -41,10 +42,10 @@ client = DropboxClient.new(get_access_token())
 info = client.account_info
 puts "Logged in as #{info['display_name']} (#{info['email']})"
 
-state = Struct.new(:working_dir, :prev_dir).new('/', '/')
+state = State.new
 
 def prompt(info, state)
-  "rubox #{info['email']}:#{state.working_dir}> "
+  "rubox #{info['email']}:#{state.pwd}> "
 end
 
 begin

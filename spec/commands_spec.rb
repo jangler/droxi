@@ -3,9 +3,10 @@ require 'minitest/autorun'
 
 require_relative '../commands'
 require_relative '../settings'
+require_relative '../state'
 
 client = DropboxClient.new(Settings[:access_token])
-state = Struct.new(:working_dir, :prev_dir).new('/', '/')
+state = State.new
 
 TEMP_FILENAME = 'test.txt'
 TEMP_FOLDER = 'test'
@@ -45,29 +46,29 @@ describe Commands do
 
   describe 'when executing the cd command' do
     it 'must change to the root directory when given 0 args' do
-      state.working_dir = '/testing'
+      state.pwd = '/testing'
       Commands.cd(client, state, [])
-      state.working_dir.must_equal '/'
+      state.pwd.must_equal '/'
     end
 
     it 'must change to the previous directory when given -' do
-      state.working_dir = '/'
-      state.prev_dir = '/testing'
+      state.pwd = '/testing'
+      state.pwd = '/'
       Commands.cd(client, state, ['-'])
-      state.working_dir.must_equal '/testing'
+      state.pwd.must_equal '/testing'
     end
 
     it 'must change to the stated directory when given 1 arg' do
-      state.working_dir = '/'
+      state.pwd = '/'
       Commands.cd(client, state, ['/testing'])
-      state.working_dir.must_equal '/testing'
+      state.pwd.must_equal '/testing'
     end
 
     it 'must set previous directory correctly' do
-      state.working_dir = '/'
-      state.prev_dir = '/testing'
+      state.pwd = '/testing'
+      state.pwd = '/'
       Commands.cd(client, state, ['/testing'])
-      state.prev_dir.must_equal '/'
+      state.oldpwd.must_equal '/'
     end
 
     it 'must raise a UsageError when given 2 or more args' do
@@ -112,7 +113,7 @@ describe Commands do
   describe 'when executing the ls command' do
     it 'must list the working directory contents when given 0 args' do
       client.file_create_folder('/testing/test')
-      state.working_dir = '/testing'
+      state.pwd = '/testing'
       lines = []
       Commands.ls(client, state, []) { |line| lines << line }
       lines.must_equal(['test'])
@@ -120,7 +121,7 @@ describe Commands do
     end
 
     it 'must list the stated directory contents when given 1 arg' do
-      state.working_dir = '/'
+      state.pwd = '/'
       client.file_create_folder('/testing/test')
       lines = []
       Commands.ls(client, state, ['/testing']) { |line| lines << line }
@@ -155,7 +156,7 @@ describe Commands do
     end
 
     it 'must put a file of the same name when given 1 arg' do
-      state.working_dir = '/testing'
+      state.pwd = '/testing'
       `echo hello > test.txt`
       Commands.put(client, state, ['test.txt'])
       `rm test.txt`
@@ -164,7 +165,7 @@ describe Commands do
     end
 
     it 'must put a file with the stated name when given 2 args' do
-      state.working_dir = '/testing'
+      state.pwd = '/testing'
       `echo hello > test.txt`
       Commands.put(client, state, ['test.txt', 'dest.txt'])
       `rm test.txt`

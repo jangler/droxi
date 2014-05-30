@@ -3,17 +3,16 @@ end
 
 class Commands
   def Commands.cd(client, state, args)
-    prev_dir = state.working_dir
     case args.length
-    when 0 then state.working_dir = '/'
+    when 0 then state.pwd = '/'
     when 1
       if args[0] == '-'
-        state.working_dir = state.prev_dir
+        state.pwd = state.oldpwd
       else
         path = resolve_path(args[0], state)
         begin
           if client.metadata(path)['is_dir']
-            state.working_dir = path
+            state.pwd = path
           else
             yield 'Not a directory'
           end
@@ -23,7 +22,6 @@ class Commands
       end
     else raise UsageError.new('[DIRECTORY]')
     end
-    state.prev_dir = prev_dir
   end
 
   def Commands.get(client, state, args)
@@ -48,7 +46,7 @@ class Commands
 
   def Commands.ls(client, state, args)
     case args.length
-    when 0 then path = state.working_dir
+    when 0 then path = state.pwd
     when 1 then path = resolve_path(args[0], state)
     else raise UsageError.new('[DIRECTORY]')
     end
@@ -168,7 +166,7 @@ class Commands
   private
 
   def Commands.resolve_path(path, state)
-    path = "#{state.working_dir}/#{path}" unless path.start_with?('/')
+    path = "#{state.pwd}/#{path}" unless path.start_with?('/')
     path.gsub!('//', '/')
     while path.sub!(/\/([^\/]+?)\/\.\./, '')
     end
