@@ -1,13 +1,20 @@
 require 'minitest/autorun'
 
 require_relative '../state'
+require_relative '../settings'
 
 describe State do
   describe 'when initializing' do
-    it 'must set pwd and oldpwd to root' do
+    it 'must set pwd to root' do
       state = State.new
       state.pwd.must_equal '/'
-      state.oldpwd.must_equal '/'
+    end
+
+    it 'must set oldpwd to saved oldpwd' do
+      state = State.new
+      if Settings.include?(:oldpwd)
+        state.oldpwd.must_equal Settings[:oldpwd]
+      end
     end
   end
 

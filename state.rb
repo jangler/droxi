@@ -1,12 +1,20 @@
+require_relative 'settings'
+
 class State
   attr_reader :oldpwd, :pwd
 
   def initialize
-    @oldpwd = @pwd = '/'
+    @pwd = '/'
+    @oldpwd = if Settings.include?(:oldpwd)
+      Settings[:oldpwd]
+    else
+      '/'
+    end
   end
 
   def pwd=(value)
     @oldpwd, @pwd = @pwd, value
+    Settings[:oldpwd] = @oldpwd
   end
 
   def resolve_path(path)

@@ -45,9 +45,10 @@ class Settings
   def Settings.parse(line)
     if /^(.+?)=(.+)$/ =~ line
       key, value = $1.to_sym, $2
-      case key
-      when :access_token then {key => value}
-      else warn_invalid(line)
+      if [:access_token, :oldpwd].include?(key)
+        {key => value}
+      else
+        warn_invalid(line)
       end
     else
       warn_invalid(line)

@@ -57,4 +57,5 @@ rescue Interrupt
   puts
 end
 
+state.pwd = '/'
 Settings.write
