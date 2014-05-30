@@ -107,6 +107,19 @@ class Commands
     end
   end
 
+  def Commands.share(client, state, args)
+    if args.length == 1
+      path = resolve_path(args[0], state)
+      begin
+        yield client.shares(path)['url']
+      rescue DropboxError => error
+        yield error
+      end
+    else
+      raise UsageError.new('FILE')
+    end
+  end
+
   def Commands.shell(cmd)
     begin
       IO.popen(cmd) do |pipe|

@@ -7,9 +7,31 @@ require_relative '../settings'
 client = DropboxClient.new(Settings[:access_token])
 state = Struct.new(:working_dir, :prev_dir).new('/', '/')
 
+TEMP_FILENAME = 'test.txt'
+TEMP_FOLDER = 'test'
+TEST_FOLDER = 'testing'
+
 begin
-  client.file_create_folder('/testing')
+  client.file_create_folder("/#{TEST_FOLDER}")
 rescue DropboxError
+end
+
+def put_temp_file(client)
+  `echo hello > #{TEMP_FILENAME}`
+  open(TEMP_FILENAME, 'rb') do |file|
+    client.put_file("/#{TEST_FOLDER}/#{TEMP_FILENAME}", file)
+  end
+  `rm test.txt`
+end
+
+def delete_temp_file(client)
+  client.file_delete("/#{TEST_FOLDER}/#{TEMP_FILENAME}")
+end
+
+def get_output(method, client, state, args)
+  lines = []
+  Commands.send(method, client, state, args) { |line| lines << line }
+  lines
 end
 
 describe Commands do
@@ -152,6 +174,22 @@ describe Commands do
 
     it 'must raise a UsageError when given 3 or more args' do
       proc { Commands.put(client, state, [1, 2, 3]) }.must_raise UsageError
+    end
+  end
+
+  describe 'when executing the share command' do
+    it 'must raise UsageError when given wrong number of args' do
+      proc { Commands.share(client, state, []) }.must_raise UsageError
+      proc { Commands.share(client, state, [1, 2]) }.must_raise UsageError
+    end
+
+    it 'must yield URL when given file path' do
+      put_temp_file(client)
+      to_path = "/#{TEST_FOLDER}/#{TEMP_FILENAME}"
+      lines = get_output(:share, client, state, [to_path])
+      delete_temp_file(client)
+      lines.length.must_equal 1
+      /^https:\/\/.+\..+\//.match(lines[0]).wont_equal nil
     end
   end
 
