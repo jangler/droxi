@@ -84,15 +84,16 @@ class Commands
   end
 
   def Commands.mkdir(client, state, args)
-    if args.length == 1
-      path = state.resolve_path(args[0])
-      begin
-        client.file_create_folder(path)
-      rescue DropboxError => error
-        yield error
-      end
+    if args.empty?
+      raise UsageError.new('DIRECTORY...')
     else
-      raise UsageError.new('DIRECTORY')
+      args.each do |arg|
+        begin
+          client.file_create_folder(state.resolve_path(arg))
+        rescue DropboxError => error
+          yield error.to_s if block_given?
+        end
+      end
     end
   end
 

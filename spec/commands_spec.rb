@@ -131,18 +131,14 @@ describe Commands do
   end
 
   describe 'when executing the mkdir command' do
-    it 'must raise a UsageError when given 0 args' do
+    it 'must raise a UsageError when given no args' do
       proc { Commands.mkdir(client, state, []) }.must_raise UsageError
     end
 
-    it 'must create a directory when given 1 arg' do
+    it 'must create a directory when given args' do
       Commands.mkdir(client, state, ['/testing/test'])
       client.metadata('/testing/test')['is_deleted'].wont_equal true
       client.file_delete('/testing/test')
-    end
-
-    it 'must raise a UsageError when given 2 or more args' do
-      proc { Commands.mkdir(client, state, ['1', '2']) }.must_raise UsageError
     end
   end
 
