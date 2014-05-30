@@ -56,3 +56,5 @@ begin
 rescue Interrupt
   puts
 end
+
+Settings.write

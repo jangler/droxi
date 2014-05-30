@@ -8,10 +8,10 @@ class Settings
   end
 
   def Settings.[]=(key, value)
-    prev_value = @@settings[key]
-    @@settings[key] = value
-    save_settings() if prev_value != value
-    value
+    if value != @@settings[key]
+      @@dirty = true
+      @@settings[key] = value
+    end
   end
 
   def Settings.include?(key)
@@ -20,47 +20,50 @@ class Settings
 
   def Settings.delete(key)
     if @@settings.include?(key)
-      value = @@settings.delete(key)
-      save_settings()
-      value
+      @@dirty = true
+      @@settings.delete(key)
+    end
+  end
+
+  def Settings.write
+    if @@dirty
+      @@dirty = false
+      FileUtils.mkdir_p(File.dirname(CONFIG_FILE_PATH))
+      File.open(CONFIG_FILE_PATH, 'w') do |file|
+        @@settings.each_pair { |k, v| file.write("#{k}=#{v}\n") }
+      end
     end
   end
 
   private
 
-  def Settings.invalid_setting(line)
+  def Settings.warn_invalid(line)
     warn "invalid setting: #{line}"
     {}
   end
 
-  def Settings.parse_setting(line)
+  def Settings.parse(line)
     if /^(.+?)=(.+)$/ =~ line
       key, value = $1.to_sym, $2
       case key
       when :access_token then {key => value}
-      else invalid_setting(line)
+      else warn_invalid(line)
       end
     else
-      invalid_setting(line)
+      warn_invalid(line)
     end
   end
 
-  def Settings.read_settings
+  def Settings.read
     if File.exists?(CONFIG_FILE_PATH)
       File.open(CONFIG_FILE_PATH) do |file|
-        file.each_line.reduce({}) { |a, e| a.merge(parse_setting(e.strip)) }
+        file.each_line.reduce({}) { |a, e| a.merge(parse(e.strip)) }
       end
     else
       {}
     end
   end
 
-  def Settings.save_settings()
-    FileUtils.mkdir_p(File.dirname(CONFIG_FILE_PATH))
-    File.open(CONFIG_FILE_PATH, 'w') do |file|
-      @@settings.each_pair { |k, v| file.write("#{k}=#{v}\n") }
-    end
-  end
-
-  @@settings = Settings.read_settings
+  @@settings = read
+  @@dirty = false
 end
