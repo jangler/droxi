@@ -41,8 +41,7 @@ client = DropboxClient.new(get_access_token())
 info = client.account_info
 puts "Logged in as #{info['display_name']} (#{info['email']})"
 
-State = Struct.new(:working_dir)
-state = State.new('/')
+state = Struct.new(:working_dir, :prev_dir).new('/', '/')
 
 def prompt(info, state)
   "rubox #{info['email']}:#{state.working_dir}> "

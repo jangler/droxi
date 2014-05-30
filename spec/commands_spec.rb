@@ -5,7 +5,7 @@ require_relative '../commands'
 require_relative '../settings'
 
 client = DropboxClient.new(Settings[:access_token])
-state = Struct.new(:working_dir).new('/')
+state = Struct.new(:working_dir, :prev_dir).new('/', '/')
 
 begin
   client.file_create_folder('/testing')
@@ -28,10 +28,24 @@ describe Commands do
       state.working_dir.must_equal '/'
     end
 
+    it 'must change to the previous directory when given -' do
+      state.working_dir = '/'
+      state.prev_dir = '/testing'
+      Commands.cd(client, state, ['-'])
+      state.working_dir.must_equal '/testing'
+    end
+
     it 'must change to the stated directory when given 1 arg' do
       state.working_dir = '/'
       Commands.cd(client, state, ['/testing'])
       state.working_dir.must_equal '/testing'
+    end
+
+    it 'must set previous directory correctly' do
+      state.working_dir = '/'
+      state.prev_dir = '/testing'
+      Commands.cd(client, state, ['/testing'])
+      state.prev_dir.must_equal '/'
     end
 
     it 'must raise a UsageError when given 2 or more args' do

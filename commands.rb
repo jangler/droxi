@@ -3,21 +3,27 @@ end
 
 class Commands
   def Commands.cd(client, state, args)
+    prev_dir = state.working_dir
     case args.length
     when 0 then state.working_dir = '/'
     when 1
-      path = resolve_path(args[0], state)
-      begin
-        if client.metadata(path)['is_dir']
-          state.working_dir = path
-        else
-          yield 'Not a directory'
+      if args[0] == '-'
+        state.working_dir = state.prev_dir
+      else
+        path = resolve_path(args[0], state)
+        begin
+          if client.metadata(path)['is_dir']
+            state.working_dir = path
+          else
+            yield 'Not a directory'
+          end
+        rescue DropboxError => error
+          yield 'No such file or directory'
         end
-      rescue DropboxError => error
-        yield 'No such file or directory'
       end
     else raise UsageError.new('[DIRECTORY]')
     end
+    state.prev_dir = prev_dir
   end
 
   def Commands.get(client, state, args)
