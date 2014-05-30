@@ -9,7 +9,7 @@ class Commands
       if args[0] == '-'
         state.pwd = state.oldpwd
       else
-        path = resolve_path(args[0], state)
+        path = state.resolve_path(args[0])
         begin
           if client.metadata(path)['is_dir']
             state.pwd = path
@@ -32,7 +32,7 @@ class Commands
       raise UsageError.new('FILE [DESTINATION]')
     end
 
-    path = resolve_path(from_path, state)
+    path = state.resolve_path(from_path)
 
     begin
       contents = client.get_file(path)
@@ -45,24 +45,40 @@ class Commands
   end
 
   def Commands.ls(client, state, args)
-    case args.length
-    when 0 then path = state.pwd
-    when 1 then path = resolve_path(args[0], state)
-    else raise UsageError.new('[DIRECTORY]')
-    end
-
-    begin
-      client.metadata(path)['contents'].each do |data|
-        yield File.basename(data['path'])
+    if block_given?
+      patterns = if args.empty?
+        ["#{state.pwd}/*".sub('//', '/')]
+      else
+        args.map do |path|
+          path = state.resolve_path(path)
+          begin
+            if client.metadata(path)['is_dir']
+              "#{path}/*".sub('//', '/')
+            else
+              path
+            end
+          rescue DropboxError
+            path
+          end
+        end
       end
-    rescue DropboxError => error
-      yield error.to_s
+
+      patterns.each do |pattern|
+        begin
+          client.metadata(File.dirname(pattern))['contents'].each do |data|
+            path = data['path']
+            yield File.basename(path) if File.fnmatch(pattern, path)
+          end
+        rescue DropboxError => error
+          yield error.to_s
+        end
+      end
     end
   end
 
   def Commands.mkdir(client, state, args)
     if args.length == 1
-      path = resolve_path(args[0], state)
+      path = state.resolve_path(args[0])
       begin
         client.file_create_folder(path)
       rescue DropboxError => error
@@ -81,7 +97,7 @@ class Commands
       raise UsageError.new('FILE [DESTINATION]')
     end
 
-    to_path = resolve_path(File.basename(to_path), state)
+    to_path = state.resolve_path(File.basename(to_path))
 
     begin
       File.open(File.expand_path(from_path), 'rb') do |file|
@@ -94,7 +110,7 @@ class Commands
 
   def Commands.rm(client, state, args)
     if args.length == 1
-      path = resolve_path(args[0], state)
+      path = state.resolve_path(args[0])
       begin
         client.file_delete(path)
       rescue DropboxError => error
@@ -107,7 +123,7 @@ class Commands
 
   def Commands.share(client, state, args)
     if args.length == 1
-      path = resolve_path(args[0], state)
+      path = state.resolve_path(args[0])
       begin
         yield client.shares(path)['url']
       rescue DropboxError => error
@@ -148,7 +164,7 @@ class Commands
       cmd, args = tokens[0].to_sym, tokens.drop(1)
 
       methods = singleton_methods.reject do |method| 
-        [:exec, :resolve_path, :shell].include?(method)
+        [:exec, :shell].include?(method)
       end
 
       if methods.include?(cmd)
@@ -161,17 +177,5 @@ class Commands
         puts "Unrecognized command: #{cmd}"
       end
     end
-  end
-
-  private
-
-  def Commands.resolve_path(path, state)
-    path = "#{state.pwd}/#{path}" unless path.start_with?('/')
-    path.gsub!('//', '/')
-    while path.sub!(/\/([^\/]+?)\/\.\./, '')
-    end
-    path.chomp!('/')
-    path = '/' if path.empty?
-    path
   end
 end

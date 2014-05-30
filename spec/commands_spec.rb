@@ -128,10 +128,6 @@ describe Commands do
       lines.must_equal(['test'])
       client.file_delete('/testing/test')
     end
-
-    it 'must raise a UsageError when given 2 or more args' do
-      proc { Commands.ls(client, state, ['1', '2']) }.must_raise UsageError
-    end
   end
 
   describe 'when executing the mkdir command' do
