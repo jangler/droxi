@@ -175,9 +175,8 @@ describe Commands do
   end
 
   describe 'when executing the share command' do
-    it 'must raise UsageError when given wrong number of args' do
+    it 'must raise UsageError when given no args' do
       proc { Commands.share(client, state, []) }.must_raise UsageError
-      proc { Commands.share(client, state, [1, 2]) }.must_raise UsageError
     end
 
     it 'must yield URL when given file path' do
@@ -186,7 +185,7 @@ describe Commands do
       lines = get_output(:share, client, state, [to_path])
       delete_temp_file(client)
       lines.length.must_equal 1
-      /^https:\/\/.+\..+\//.match(lines[0]).wont_equal nil
+      /https:\/\/.+\..+\//.match(lines[0]).wont_equal nil
     end
   end
 

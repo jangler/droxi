@@ -129,15 +129,16 @@ class Commands
   end
 
   def Commands.share(client, state, args)
-    if args.length == 1
-      path = state.resolve_path(args[0])
-      begin
-        yield client.shares(path)['url']
-      rescue DropboxError => error
-        yield error
+    if args.empty?
+      raise UsageError.new('FILE...')
+    elsif block_given?
+      state.expand_patterns(client, args).each do |path|
+        begin
+          yield "#{path}: #{client.shares(path)['url']}"
+        rescue DropboxError => error
+          yield error.to_s
+        end
       end
-    else
-      raise UsageError.new('FILE')
     end
   end
 
