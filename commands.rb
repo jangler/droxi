@@ -65,9 +65,16 @@ class Commands
 
       patterns.each do |pattern|
         begin
+          matches = []
           client.metadata(File.dirname(pattern))['contents'].each do |data|
             path = data['path']
-            yield File.basename(path) if File.fnmatch(pattern, path)
+            matches << File.basename(path) if File.fnmatch(pattern, path)
+          end
+
+          if matches.empty?
+            yield "ls: cannot access #{pattern}: No such file or directory"
+          else
+            matches.each { |match| yield match }
           end
         rescue DropboxError => error
           yield error.to_s
