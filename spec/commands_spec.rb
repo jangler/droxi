@@ -190,18 +190,14 @@ describe Commands do
   end
 
   describe 'when executing the rm command' do
-    it 'must raise a UsageError when given 0 args' do
+    it 'must raise a UsageError when given no args' do
       proc { Commands.rm(client, state, []) }.must_raise UsageError
     end
 
-    it 'must remove the remote file when given 1 arg' do
+    it 'must remove the remote file when given args' do
       client.file_create_folder('/testing/test')
       Commands.rm(client, state, ['/testing/test'])
       client.metadata('/testing/test')['is_deleted'].must_equal true
-    end
-
-    it 'must raise a UsageError when given 2 or more args' do
-      proc { Commands.rm(client, state, ['1', '2']) }.must_raise UsageError
     end
   end
 end

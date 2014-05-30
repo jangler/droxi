@@ -116,15 +116,16 @@ class Commands
   end
 
   def Commands.rm(client, state, args)
-    if args.length == 1
-      path = state.resolve_path(args[0])
-      begin
-        client.file_delete(path)
-      rescue DropboxError => error
-        yield error
-      end
+    if args.empty?
+      raise UsageError.new('FILE...')
     else
-      raise UsageError.new('FILE')
+      state.expand_patterns(client, args).each do |path|
+        begin
+          client.file_delete(path)
+        rescue DropboxError => error
+          yield error.to_s
+        end
+      end
     end
   end
 
