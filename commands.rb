@@ -14,10 +14,10 @@ class Commands
           if client.metadata(path)['is_dir']
             state.pwd = path
           else
-            yield 'Not a directory'
+            yield 'Not a directory' if block_given?
           end
         rescue DropboxError => error
-          yield 'No such file or directory'
+          yield 'No such file or directory' if block_given?
         end
       end
     else raise UsageError.new('[DIRECTORY]')
@@ -40,7 +40,7 @@ class Commands
         file.write(contents)
       end
     rescue DropboxError => error
-      yield error
+      yield error.to_s if block_given?
     end
   end
 
@@ -112,7 +112,7 @@ class Commands
         client.put_file(to_path, file)
       end
     rescue Exception => error
-      yield error
+      yield error.to_s if block_given?
     end
   end
 
@@ -124,7 +124,7 @@ class Commands
         begin
           client.file_delete(path)
         rescue DropboxError => error
-          yield error.to_s
+          yield error.to_s if block_given?
         end
       end
     end
@@ -147,11 +147,11 @@ class Commands
   def Commands.shell(cmd)
     begin
       IO.popen(cmd) do |pipe|
-        pipe.each_line { |line| yield line.chomp }
+        pipe.each_line { |line| yield line.chomp if block_given? }
       end
     rescue Interrupt
     rescue Exception => error
-      yield error
+      yield error.to_s if block_given?
     end
   end
 
