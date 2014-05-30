@@ -1,3 +1,6 @@
+class UsageError < ArgumentError
+end
+
 class Commands
   def Commands.cd(client, state, args)
     case args.length
@@ -13,7 +16,7 @@ class Commands
       rescue DropboxError => error
         yield 'No such file or directory'
       end
-    else yield 'Usage: cd [DIRECTORY]'
+    else raise UsageError.new('[DIRECTORY]')
     end
   end
 
@@ -38,12 +41,18 @@ class Commands
   end
 
   def Commands.ls(client, state, args)
-    if args.empty?
-      client.metadata(state.working_dir)['contents'].each do |data|
+    case args.length
+    when 0 then path = state.working_dir
+    when 1 then path = resolve_path(args[0], state)
+    else raise UsageError.new('[DIRECTORY]')
+    end
+
+    begin
+      client.metadata(path)['contents'].each do |data|
         yield File.basename(data['path'])
       end
-    else
-      yield 'Usage: ls'
+    rescue DropboxError => error
+      yield error.to_s
     end
   end
 
@@ -103,7 +112,11 @@ class Commands
       end
 
       if methods.include?(cmd)
-        send(cmd, client, state, args) { |line| puts line }
+        begin
+          send(cmd, client, state, args) { |line| puts line }
+        rescue UsageError => error
+          puts "Usage: #{cmd} #{error}"
+        end
       else
         puts "Unrecognized command: #{cmd}"
       end
