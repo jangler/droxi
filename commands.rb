@@ -65,7 +65,7 @@ class Commands
         yield error
       end
     else
-      yield 'Usage: mkdir DIRECTORY'
+      raise UsageError.new('DIRECTORY')
     end
   end
 
@@ -86,6 +86,19 @@ class Commands
       end
     rescue Exception => error
       yield error
+    end
+  end
+
+  def Commands.rm(client, state, args)
+    if args.length == 1
+      path = resolve_path(args[0], state)
+      begin
+        client.file_delete(path)
+      rescue DropboxError => error
+        yield error
+      end
+    else
+      raise UsageError.new('FILE')
     end
   end
 
