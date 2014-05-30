@@ -25,11 +25,11 @@ class Commands
     when 1 then from_path = to_path = args[0]
     when 2 then from_path, to_path = args
     else
-      yield 'Usage: get FILE [DESTINATION]'
-      return
+      raise UsageError.new('FILE [DESTINATION]')
     end
 
     path = resolve_path(from_path, state)
+
     begin
       contents = client.get_file(path)
       File.open(File.basename(to_path), 'wb') do |file|
@@ -74,8 +74,7 @@ class Commands
     when 1 then from_path = to_path = args[0]
     when 2 then from_path, to_path = args[0], args[1]
     else
-      yield "Usage: put FILE [DESTINATION]"
-      return
+      raise UsageError.new('FILE [DESTINATION]')
     end
 
     to_path = resolve_path(File.basename(to_path), state)
@@ -118,10 +117,21 @@ class Commands
       shell(input[1, input.length - 1]) { |line| puts line }
     elsif not input.empty?
       tokens = input.split
+
+      # Escape spaces with backslash
+      i = 0
+      while i < tokens.length - 1
+        if tokens[i].end_with?('\\')
+          tokens[i] = "#{tokens[i].chop} #{tokens.delete_at(i + 1)}"
+        else
+          i += 1
+        end
+      end
+
       cmd, args = tokens[0].to_sym, tokens.drop(1)
 
       methods = singleton_methods.reject do |method| 
-        [:exec, :resolve_path].include?(method)
+        [:exec, :resolve_path, :shell].include?(method)
       end
 
       if methods.include?(cmd)
