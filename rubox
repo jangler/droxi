@@ -49,7 +49,11 @@ def prompt(info, state)
 end
 
 Readline.completion_proc = proc do |s|
-  state.tab_complete(client, s)
+  begin
+    state.tab_complete(client, s)
+  rescue DropboxError
+    []
+  end
 end
 Readline.completion_append_character = nil
 

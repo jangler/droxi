@@ -9,19 +9,18 @@ class State
     @cache = {}
   end
 
+  def have_all_info_for(path)
+    @cache.include?(path) &&
+    (@cache[path].include?('contents') || !@cache[path]['is_dir'])
+  end
+
   def metadata(client, path)
     tokens = path.split('/').drop(1)
 
     for i in 0..tokens.length
       partial_path = '/' + tokens.take(i).join('/')
-      unless @cache.include?(partial_path) &&
-             (@cache[partial_path].include?('contents') ||
-              !@cache[partial_path]['is_dir'])
-        data = @cache[partial_path] = begin
-          client.metadata(partial_path)
-        rescue DropboxError
-          return nil
-        end
+      unless have_all_info_for(partial_path)
+        data = @cache[partial_path] = client.metadata(partial_path)
         if data.include?('contents')
           data['contents'].each do |datum|  
             @cache[datum['path']] = datum
@@ -41,21 +40,29 @@ class State
     end
   end
 
-  def tab_complete(client, word)
-    path = resolve_path(word)
-    prefix_length = path.length - word.length
-    if word.end_with?('/')
-      metadata(client, path)
-      prefix_length += 1
-    else
-      metadata(client, File.dirname(path))
-    end
+  def complete(path, prefix_length)
     @cache.keys.select do |key|
       key.start_with?(path) && key != path
     end.map do |key|
       key += '/' if @cache[key]['is_dir']
       key[prefix_length, key.length]
     end
+  end
+
+  def tab_complete(client, word)
+    path = resolve_path(word)
+    prefix_length = path.length - word.length
+
+    if word.end_with?('/')
+      # Treat word as directory
+      metadata(client, path)
+      prefix_length += 1
+    else
+      # Treat word as file
+      metadata(client, File.dirname(path))
+    end
+
+    complete(path, prefix_length)
   end
 
   def pwd=(value)
