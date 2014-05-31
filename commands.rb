@@ -25,22 +25,21 @@ class Commands
   end
 
   def Commands.get(client, state, args)
-    case args.length
-    when 1 then from_path = to_path = args[0]
-    when 2 then from_path, to_path = args
-    else
-      raise UsageError.new('FILE [DESTINATION]')
+    if args.empty?
+      raise UsageError.new('FILE...')
     end
 
-    path = state.resolve_path(from_path)
+    args.each do |arg|
+      path = state.resolve_path(arg)
 
-    begin
-      contents = client.get_file(path)
-      File.open(File.basename(to_path), 'wb') do |file|
-        file.write(contents)
+      begin
+        contents = client.get_file(path)
+        File.open(File.basename(path), 'wb') do |file|
+          file.write(contents)
+        end
+      rescue DropboxError => error
+        yield error.to_s if block_given?
       end
-    rescue DropboxError => error
-      yield error.to_s if block_given?
     end
   end
 
@@ -101,7 +100,7 @@ class Commands
       raise UsageError.new('FILE [DESTINATION]')
     end
 
-    to_path = state.resolve_path(File.basename(to_path))
+    to_path = state.resolve_path(to_path)
 
     begin
       File.open(File.expand_path(from_path), 'rb') do |file|

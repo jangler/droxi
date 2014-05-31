@@ -78,28 +78,16 @@ describe Commands do
   end
 
   describe 'when executing the get command' do
-    it 'must raise a UsageError when given 0 args' do
+    it 'must raise a UsageError when given no args' do
       proc { Commands.get(client, state, []) }.must_raise UsageError
     end
 
-    it 'must get a file of the same name when given 1 arg' do
+    it 'must get a file of the same name when given args' do
       put_temp_file(client, state)
       Commands.get(client, state, ['/testing/test.txt'])
       delete_temp_file(client, state)
       `ls test.txt`.chomp.must_equal 'test.txt'
       `rm test.txt`
-    end
-
-    it 'must get a file as the stated name when given 2 args' do
-      put_temp_file(client, state)
-      Commands.get(client, state, ['/testing/test.txt', 'dest.txt'])
-      delete_temp_file(client, state)
-      `ls dest.txt`.chomp.must_equal 'dest.txt'
-      `rm dest.txt`
-    end
-
-    it 'must raise a UsageError when given 3 or more args' do
-      proc { Commands.get(client, state, [1, 2, 3]) }.must_raise UsageError
     end
   end
 
