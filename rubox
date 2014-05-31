@@ -48,6 +48,11 @@ def prompt(info, state)
   "rubox #{info['email']}:#{state.pwd}> "
 end
 
+Readline.completion_proc = proc do |s|
+  state.tab_complete(client, s)
+end
+Readline.completion_append_character = nil
+
 begin
   while line = Readline.readline(prompt(info, state), true)
     Commands.exec(line.chomp, client, state)

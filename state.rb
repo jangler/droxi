@@ -17,7 +17,11 @@ class State
       unless @cache.include?(partial_path) &&
              (@cache[partial_path].include?('contents') ||
               !@cache[partial_path]['is_dir'])
-        data = @cache[partial_path] = client.metadata(partial_path)
+        data = @cache[partial_path] = begin
+          client.metadata(partial_path)
+        rescue DropboxError
+          return nil
+        end
         if data.include?('contents')
           data['contents'].each do |datum|  
             @cache[datum['path']] = datum
@@ -34,6 +38,23 @@ class State
     path = "#{path}/".sub('//', '/')
     @cache.keys.select do |key|
       key.start_with?(path) && key != path && !key.sub(path, '').include?('/')
+    end
+  end
+
+  def tab_complete(client, word)
+    path = resolve_path(word)
+    prefix_length = path.length - word.length
+    if word.end_with?('/')
+      metadata(client, path)
+      prefix_length += 1
+    else
+      metadata(client, File.dirname(path))
+    end
+    @cache.keys.select do |key|
+      key.start_with?(path) && key != path
+    end.map do |key|
+      key += '/' if @cache[key]['is_dir']
+      key[prefix_length, key.length]
     end
   end
 
