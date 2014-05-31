@@ -11,7 +11,7 @@ class Commands
       else
         path = state.resolve_path(args[0])
         begin
-          if state.metadata(client, path)['is_dir']
+          if state.is_dir?(client, path)
             state.pwd = path
           else
             yield 'Not a directory' if block_given?
@@ -52,7 +52,7 @@ class Commands
         args.map do |path|
           path = state.resolve_path(path)
           begin
-            if state.metadata(client, path)['is_dir']
+            if state.is_dir?(client, path)
               "#{path}/*".sub('//', '/')
             else
               path

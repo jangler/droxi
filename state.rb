@@ -40,6 +40,11 @@ class State
     end
   end
 
+  def is_dir?(client, path)
+    metadata(client, File.dirname(path))
+    @cache.include?(path) && @cache[path]['is_dir']
+  end
+
   def complete(path, prefix_length)
     @cache.keys.select do |key|
       key.start_with?(path) && key != path
