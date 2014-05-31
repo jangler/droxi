@@ -17,16 +17,17 @@ begin
 rescue DropboxError
 end
 
-def put_temp_file(client)
+def put_temp_file(client, state)
   `echo hello > #{TEMP_FILENAME}`
   open(TEMP_FILENAME, 'rb') do |file|
-    client.put_file("/#{TEST_FOLDER}/#{TEMP_FILENAME}", file)
+    Commands.put(client, state, [TEMP_FILENAME,
+                                "/#{TEST_FOLDER}/#{TEMP_FILENAME}"])
   end
   `rm test.txt`
 end
 
-def delete_temp_file(client)
-  client.file_delete("/#{TEST_FOLDER}/#{TEMP_FILENAME}")
+def delete_temp_file(client, state)
+  Commands.rm(client, state, ["/#{TEST_FOLDER}/#{TEMP_FILENAME}"])
 end
 
 def get_output(method, client, state, args)
@@ -82,25 +83,17 @@ describe Commands do
     end
 
     it 'must get a file of the same name when given 1 arg' do
-      `echo hello > test.txt`
-      open('test.txt', 'rb') do |file|
-        client.put_file('/testing/test.txt', file)
-      end
-      `rm test.txt`
+      put_temp_file(client, state)
       Commands.get(client, state, ['/testing/test.txt'])
-      client.file_delete('/testing/test.txt')
+      delete_temp_file(client, state)
       `ls test.txt`.chomp.must_equal 'test.txt'
       `rm test.txt`
     end
 
     it 'must get a file as the stated name when given 2 args' do
-      `echo hello > test.txt`
-      open('test.txt', 'rb') do |file|
-        client.put_file('/testing/test.txt', file)
-      end
-      `rm test.txt`
+      put_temp_file(client, state)
       Commands.get(client, state, ['/testing/test.txt', 'dest.txt'])
-      client.file_delete('/testing/test.txt')
+      delete_temp_file(client, state)
       `ls dest.txt`.chomp.must_equal 'dest.txt'
       `rm dest.txt`
     end
@@ -112,21 +105,21 @@ describe Commands do
 
   describe 'when executing the ls command' do
     it 'must list the working directory contents when given 0 args' do
-      client.file_create_folder('/testing/test')
+      Commands.mkdir(client, state, ['/testing/test'])
       state.pwd = '/testing'
       lines = []
       Commands.ls(client, state, []) { |line| lines << line }
       lines.must_equal(['test'])
-      client.file_delete('/testing/test')
+      Commands.rm(client, state, ['/testing/test'])
     end
 
     it 'must list the stated directory contents when given 1 arg' do
       state.pwd = '/'
-      client.file_create_folder('/testing/test')
+      Commands.mkdir(client, state, ['/testing/test'])
       lines = []
       Commands.ls(client, state, ['/testing']) { |line| lines << line }
       lines.must_equal(['test'])
-      client.file_delete('/testing/test')
+      Commands.rm(client, state, ['/testing/test'])
     end
   end
 
@@ -138,7 +131,7 @@ describe Commands do
     it 'must create a directory when given args' do
       Commands.mkdir(client, state, ['/testing/test'])
       client.metadata('/testing/test')['is_deleted'].wont_equal true
-      client.file_delete('/testing/test')
+      Commands.rm(client, state, ['/testing/test'])
     end
   end
 
@@ -153,7 +146,7 @@ describe Commands do
       Commands.put(client, state, ['test.txt'])
       `rm test.txt`
       client.metadata('/testing/test.txt')['is_deleted'].wont_equal true
-      client.file_delete('/testing/test.txt')
+      Commands.rm(client, state, ['/testing/test.txt'])
     end
 
     it 'must put a file with the stated name when given 2 args' do
@@ -162,7 +155,7 @@ describe Commands do
       Commands.put(client, state, ['test.txt', 'dest.txt'])
       `rm test.txt`
       client.metadata('/testing/dest.txt')['is_deleted'].wont_equal true
-      client.file_delete('/testing/dest.txt')
+      Commands.rm(client, state, ['/testing/dest.txt'])
     end
 
     it 'must raise a UsageError when given 3 or more args' do
@@ -176,10 +169,10 @@ describe Commands do
     end
 
     it 'must yield URL when given file path' do
-      put_temp_file(client)
+      put_temp_file(client, state)
       to_path = "/#{TEST_FOLDER}/#{TEMP_FILENAME}"
       lines = get_output(:share, client, state, [to_path])
-      delete_temp_file(client)
+      delete_temp_file(client, state)
       lines.length.must_equal 1
       /https:\/\/.+\..+\//.match(lines[0]).wont_equal nil
     end
@@ -191,7 +184,7 @@ describe Commands do
     end
 
     it 'must remove the remote file when given args' do
-      client.file_create_folder('/testing/test')
+      Commands.mkdir(client, state, ['/testing/test'])
       Commands.rm(client, state, ['/testing/test'])
       client.metadata('/testing/test')['is_deleted'].must_equal true
     end

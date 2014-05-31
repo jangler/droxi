@@ -11,7 +11,7 @@ class Commands
       else
         path = state.resolve_path(args[0])
         begin
-          if client.metadata(path)['is_dir']
+          if state.metadata(client, path)['is_dir']
             state.pwd = path
           else
             yield 'Not a directory' if block_given?
@@ -52,7 +52,7 @@ class Commands
         args.map do |path|
           path = state.resolve_path(path)
           begin
-            if client.metadata(path)['is_dir']
+            if state.metadata(client, path)['is_dir']
               "#{path}/*".sub('//', '/')
             else
               path
@@ -66,16 +66,11 @@ class Commands
       patterns.each do |pattern|
         begin
           matches = []
-          client.metadata(File.dirname(pattern))['contents'].each do |data|
-            path = data['path']
+          dir = File.dirname(pattern)
+          state.contents(client, dir).each do |path|
             matches << File.basename(path) if File.fnmatch(pattern, path)
           end
-
-          if matches.empty?
-            yield "ls: cannot access #{pattern}: No such file or directory"
-          else
-            matches.each { |match| yield match }
-          end
+          matches.each { |match| yield match }
         rescue DropboxError => error
           yield error.to_s
         end
@@ -89,7 +84,8 @@ class Commands
     else
       args.each do |arg|
         begin
-          client.file_create_folder(state.resolve_path(arg))
+          path = state.resolve_path(arg)
+          state.cache[path] = client.file_create_folder(path)
         rescue DropboxError => error
           yield error.to_s if block_given?
         end
@@ -109,7 +105,7 @@ class Commands
 
     begin
       File.open(File.expand_path(from_path), 'rb') do |file|
-        client.put_file(to_path, file)
+        state.cache[to_path] = client.put_file(to_path, file)
       end
     rescue Exception => error
       yield error.to_s if block_given?
@@ -123,6 +119,7 @@ class Commands
       state.expand_patterns(client, args).each do |path|
         begin
           client.file_delete(path)
+          state.cache.delete(path)
         rescue DropboxError => error
           yield error.to_s if block_given?
         end
