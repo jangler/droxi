@@ -12,15 +12,15 @@ TEMP_FILENAME = 'test.txt'
 TEMP_FOLDER = 'test'
 TEST_FOLDER = 'testing'
 
-begin
-  client.file_delete("/#{TEST_FOLDER}")
-rescue DropboxError
+def ignore(error_class)
+  begin
+    yield
+  rescue error_class
+  end
 end
 
-begin
-  client.file_create_folder("/#{TEST_FOLDER}")
-rescue DropboxError
-end
+ignore(DropboxError) { client.file_delete("/#{TEST_FOLDER}") }
+ignore(DropboxError) { client.file_create_folder("/#{TEST_FOLDER}") }
 
 def put_temp_file(client, state)
   `echo hello > #{TEMP_FILENAME}`
@@ -28,7 +28,7 @@ def put_temp_file(client, state)
     Commands::PUT.exec(client, state, TEMP_FILENAME,
                        "/#{TEST_FOLDER}/#{TEMP_FILENAME}")
   end
-  `rm test.txt`
+  `rm #{TEMP_FILENAME}`
 end
 
 def delete_temp_file(client, state)
@@ -76,6 +76,12 @@ describe Commands do
       Commands::CD.exec(client, state, '/testing')
       state.oldpwd.must_equal '/'
     end
+
+    it 'must not change to a bogus directory' do
+      state.pwd = '/'
+      Commands::CD.exec(client, state, '/bogus_dir')
+      state.pwd.must_equal '/'
+    end
   end
 
   describe 'when executing the get command' do
@@ -86,6 +92,43 @@ describe Commands do
       `ls test.txt`.chomp.must_equal 'test.txt'
       `rm test.txt`
     end
+  end
+
+  describe 'when executing the lcd command' do
+    original_dir = Dir.pwd
+
+    it 'must change to home directory when given no args' do
+      Commands::LCD.exec(client, state)
+      Dir.pwd.must_equal File.expand_path('~')
+    end
+
+    it 'must change to specific directory when specified' do
+      Commands::LCD.exec(client, state, '/home')
+      Dir.pwd.must_equal File.expand_path('/home')
+    end
+
+    it 'must set oldpwd correctly' do
+      oldpwd = Dir.pwd
+      Commands::LCD.exec(client, state, '/')
+      state.local_oldpwd.must_equal oldpwd
+    end
+
+    it 'must change to previous directory when given -' do
+      oldpwd = Dir.pwd
+      Commands::LCD.exec(client, state, '/')
+      Commands::LCD.exec(client, state, '-')
+      Dir.pwd.must_equal oldpwd
+    end
+
+    it 'must fail if given bogus directory name' do
+      pwd = Dir.pwd
+      oldpwd = state.local_oldpwd
+      Commands::LCD.exec(client, state, '/bogus_dir')
+      Dir.pwd.must_equal pwd
+      state.local_oldpwd.must_equal oldpwd
+    end
+
+    Dir.chdir(original_dir)
   end
 
   describe 'when executing the ls command' do

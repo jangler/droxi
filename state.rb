@@ -2,10 +2,12 @@ require_relative 'settings'
 
 class State
   attr_reader :oldpwd, :pwd, :cache
+  attr_accessor :local_oldpwd
 
   def initialize
     @pwd = '/'
     @oldpwd = Settings[:oldpwd] || '/'
+    @local_oldpwd = Dir.pwd
     @cache = {}
   end
 

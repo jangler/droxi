@@ -100,6 +100,30 @@ module Commands
     end
   )
 
+  LCD = Command.new(
+    'lcd [LOCAL_DIR]',
+    "Change the local working directory. With no arguments, changes to the \
+     home directory. With a local directory name as the argument, changes to \
+     that directory. With - as the argument, changes to the previous working \
+     directory.",
+    lambda do |client, state, args, output|
+      path = if args.empty?
+        File.expand_path('~')
+      elsif args[0] == '-'
+        state.local_oldpwd
+      else
+        File.expand_path(args[0])
+      end
+
+      if Dir.exists?(path)
+        state.local_oldpwd = Dir.pwd
+        Dir.chdir(path)
+      else
+        output.call("lcd: #{args[0]}: No such file or directory")
+      end
+    end
+  )
+
   LS = Command.new(
     'ls [REMOTE_FILE]...',
     "List information about remote files. With no arguments, list the \
