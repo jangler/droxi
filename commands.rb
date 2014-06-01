@@ -165,7 +165,7 @@ module Commands
       if args.length == 2
         to_path = args[1]
       else
-        to_path = from_path
+        to_path = File.basename(from_path)
       end
       to_path = state.resolve_path(to_path)
 
