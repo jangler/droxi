@@ -3,19 +3,13 @@ rubox
 
 ftp-like command-line interface to dropbox in ruby
 
-example session
----------------
+features
+--------
 
-    rubox user@site:/> mkdir test
-    rubox user@site:/> ls
-    test
-    rubox user@site:/> cd test
-    rubox user@site:/test> !ls
-    data.txt
-    rubox user@site:/test> put data.txt
-    rubox user@site:/test> get data.txt info.txt
-    rubox user@site:/test> !ls
-    data.txt
-    info.txt
-    rubox user@site:/test> cd ..
-    rubox user@site:/> rm test/data.txt
+- interface inspired by
+  [GNU coreutils](http://www.gnu.org/software/coreutils/),
+  [GNU ftp](http://www.gnu.org/software/inetutils/), and
+  [lftp](http://lftp.yar.ru/)
+- context-sensitive tab completion and path globbing
+- upload, download, and share files
+- man page and interactive help
