@@ -82,7 +82,7 @@ Readline.completion_proc = proc do |word|
     type = cmd.type_of_arg(index - 2)
   end
 
-  case type
+  options = case type
   when 'COMMAND'
     Commands::NAMES.select { |name| name.start_with? word }.map do |name|
       name + ' '
@@ -104,6 +104,8 @@ Readline.completion_proc = proc do |word|
   else
     []
   end
+
+  options.map { |option| option.gsub(' ', '\ ') }
 end
 
 begin
