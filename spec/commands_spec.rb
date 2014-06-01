@@ -5,22 +5,12 @@ require_relative '../commands'
 require_relative '../settings'
 require_relative '../state'
 
-client = DropboxClient.new(Settings[:access_token])
-state = State.new
-
-TEMP_FILENAME = 'test.txt'
-TEMP_FOLDER = 'test'
-TEST_FOLDER = 'testing'
-
 def ignore(error_class)
   begin
     yield
   rescue error_class
   end
 end
-
-ignore(DropboxError) { client.file_delete("/#{TEST_FOLDER}") }
-ignore(DropboxError) { client.file_create_folder("/#{TEST_FOLDER}") }
 
 def put_temp_file(client, state)
   `echo hello > #{TEMP_FILENAME}`
@@ -42,6 +32,18 @@ def get_output(cmd, client, state, *args)
 end
 
 describe Commands do
+  original_dir = Dir.pwd
+
+  client = DropboxClient.new(Settings[:access_token])
+  state = State.new
+
+  TEMP_FILENAME = 'test.txt'
+  TEMP_FOLDER = 'test'
+  TEST_FOLDER = 'testing'
+
+  ignore(DropboxError) { client.file_delete("/#{TEST_FOLDER}") }
+  ignore(DropboxError) { client.file_create_folder("/#{TEST_FOLDER}") }
+
   describe 'when executing a shell command' do
     it 'must yield the output' do
       lines = []
@@ -85,6 +87,8 @@ describe Commands do
   end
 
   describe 'when executing the get command' do
+    Dir.chdir(original_dir)
+
     it 'must get a file of the same name when given args' do
       put_temp_file(client, state)
       Commands::GET.exec(client, state, '/testing/test.txt')
@@ -95,7 +99,7 @@ describe Commands do
   end
 
   describe 'when executing the lcd command' do
-    original_dir = Dir.pwd
+    Dir.chdir(original_dir)
 
     it 'must change to home directory when given no args' do
       Commands::LCD.exec(client, state)
@@ -160,6 +164,8 @@ describe Commands do
   end
 
   describe 'when executing the put command' do
+    Dir.chdir(original_dir)
+
     it 'must put a file of the same name when given 1 arg' do
       state.pwd = '/testing'
       `echo hello > test.txt`

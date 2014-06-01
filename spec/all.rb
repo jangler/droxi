@@ -1,3 +1,4 @@
-`ls spec/*_spec.rb`.each_line do |spec|
-  require_relative File.basename(spec.chomp, '.rb')
+# Run all spec tests
+Dir.glob('spec/*_spec.rb').each do |spec|
+  require_relative File.basename(spec, '.rb')
 end
