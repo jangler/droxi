@@ -45,31 +45,6 @@ class State
     @cache.include?(path) && @cache[path]['is_dir']
   end
 
-  def complete(path, prefix_length)
-    @cache.keys.select do |key|
-      key.start_with?(path) && key != path
-    end.map do |key|
-      key += '/' if @cache[key]['is_dir']
-      key[prefix_length, key.length]
-    end
-  end
-
-  def tab_complete(client, word)
-    path = resolve_path(word)
-    prefix_length = path.length - word.length
-
-    if word.end_with?('/')
-      # Treat word as directory
-      metadata(client, path)
-      prefix_length += 1
-    else
-      # Treat word as file
-      metadata(client, File.dirname(path))
-    end
-
-    complete(path, prefix_length)
-  end
-
   def pwd=(value)
     @oldpwd, @pwd = @pwd, value
     Settings[:oldpwd] = @oldpwd
@@ -101,5 +76,45 @@ class State
         matches
       end
     end.flatten
+  end
+
+  def file_complete(client, word)
+    tab_complete(client, word, false)
+  end
+
+  def dir_complete(client, word)
+    tab_complete(client, word, true)
+  end
+
+  private
+
+  def complete(path, prefix_length, dir_only)
+    @cache.keys.select do |key|
+      key.start_with?(path) && key != path &&
+      !(dir_only && !@cache[key]['is_dir'])
+    end.map do |key|
+      if @cache[key]['is_dir']
+        key += '/' 
+      else
+        key += ' '
+      end
+      key[prefix_length, key.length]
+    end
+  end
+
+  def tab_complete(client, word, dir_only)
+    path = resolve_path(word)
+    prefix_length = path.length - word.length
+
+    if word.end_with?('/')
+      # Treat word as directory
+      metadata(client, path)
+      prefix_length += 1
+    else
+      # Treat word as file
+      metadata(client, File.dirname(path))
+    end
+
+    complete(path, prefix_length, dir_only)
   end
 end

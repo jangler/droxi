@@ -48,16 +48,61 @@ def prompt(info, state)
   "rubox #{info['email']}:#{state.pwd}> "
 end
 
+def file_complete(word)
+  path = File.expand_path(word)
+  prefix_length = path.length - word.length
+  if word.end_with?('/') or word.empty?
+    dir = path
+    prefix_length += 1
+  else
+    dir = File.dirname(path)
+  end
+  Dir.entries(dir).map do |file|
+    dir + '/' + file
+  end.select do |file|
+    file.start_with?(path)
+  end.map do |file|
+    if File.directory?(file)
+      file << '/'
+    else
+      file << ' '
+    end
+    file[prefix_length, file.length]
+  end
+end
+
 Readline.completion_proc = proc do |word|
   words = Readline.line_buffer.split
-  if words.length == 1
-    Commands::NAMES.select { |name| name.start_with? word }
-  else
+  index = words.length
+  index += 1 if Readline.line_buffer.end_with?(' ')
+  if index <= 1
+    type = 'COMMAND'
+  elsif Commands::NAMES.include?(words[0])
+    cmd = Commands.const_get(words[0].upcase.to_sym)
+    type = cmd.type_of_arg(index - 2)
+  end
+
+  case type
+  when 'COMMAND'
+    Commands::NAMES.select { |name| name.start_with? word }.map do |name|
+      name + ' '
+    end
+  when 'LOCAL_FILE'
+    file_complete(word)
+  when 'REMOTE_FILE'
     begin
-      state.tab_complete(client, word)
+      state.file_complete(client, word)
     rescue DropboxError
       []
     end
+  when 'REMOTE_DIR'
+    begin
+      state.dir_complete(client, word)
+    rescue DropboxError
+      []
+    end
+  else
+    []
   end
 end
 

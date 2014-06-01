@@ -32,6 +32,12 @@ module Commands
       end
       (min_args..max_args).include?(num_args)
     end
+
+    def type_of_arg(index)
+      args = @usage.split.drop(1)
+      index = [index, args.length - 1].min
+      args[index].tr('[].', '')
+    end
   end
 
   CD = Command.new(
