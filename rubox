@@ -51,7 +51,7 @@ end
 Readline.completion_proc = proc do |word|
   words = Readline.line_buffer.split
   if words.length == 1
-    Commands.names.select { |name| name.start_with? word }
+    Commands::NAMES.select { |name| name.start_with? word }
   else
     begin
       state.tab_complete(client, word)

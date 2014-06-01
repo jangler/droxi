@@ -1,50 +1,84 @@
-class UsageError < ArgumentError
-end
+module Commands
+  class UsageError < ArgumentError
+  end
 
-class Commands
-  def Commands.cd(client, state, args)
-    case args.length
-    when 0 then state.pwd = '/'
-    when 1
-      if args[0] == '-'
+  class Command
+    attr_reader :usage, :description
+
+    def initialize(usage, description, procedure)
+      @usage = usage
+      @description = description.squeeze
+      @procedure = procedure
+    end
+
+    def exec(client, state, *args)
+      if num_args_ok?(args.length)
+        block = proc { |line| yield line if block_given? }
+        @procedure.yield(client, state, args, block)
+      else
+        raise UsageError.new(@usage)
+      end
+    end
+
+    def num_args_ok?(num_args)
+      args = @usage.split.drop(1)
+      min_args = args.reject { |arg| arg.start_with?('[') }.length
+      if args.last.end_with?('...')
+        max_args = num_args
+      else
+        max_args = args.length
+      end
+      (min_args..max_args).include?(num_args)
+    end
+  end
+
+  CD = Command.new(
+    'cd [REMOTE_DIR]',
+    "Change the remote working directory. With no arguments, changes to the \
+     Dropbox root. With a remote directory name as the argument, changes to \
+     that directory. With - as the argument, changes to the previous working \
+     directory.",
+    lambda do |client, state, args, output|
+      if args.empty?
+        state.pwd = '/'
+      elsif args[0] == '-'
         state.pwd = state.oldpwd
       else
         path = state.resolve_path(args[0])
+        if state.is_dir?(client, path)
+          state.pwd = path
+        else
+          output.call('Not a directory')
+        end
+      end
+    end
+  )
+
+  GET = Command.new(
+    'get REMOTE_FILE...',
+    "Download each specified remote file to a file of the same name in the \
+     local working directory.",
+    lambda do |client, state, args, output|
+      state.expand_patterns(client, args).each do |path|
         begin
-          if state.is_dir?(client, path)
-            state.pwd = path
-          else
-            yield 'Not a directory' if block_given?
+          contents = client.get_file(path)
+          File.open(File.basename(path), 'wb') do |file|
+            file.write(contents)
           end
         rescue DropboxError => error
-          yield 'No such file or directory' if block_given?
+          output.call(error.to_s)
         end
       end
-    else raise UsageError.new('[DIRECTORY]')
     end
-  end
+  )
 
-  def Commands.get(client, state, args)
-    if args.empty?
-      raise UsageError.new('FILE...')
-    end
-
-    args.each do |arg|
-      path = state.resolve_path(arg)
-
-      begin
-        contents = client.get_file(path)
-        File.open(File.basename(path), 'wb') do |file|
-          file.write(contents)
-        end
-      rescue DropboxError => error
-        yield error.to_s if block_given?
-      end
-    end
-  end
-
-  def Commands.ls(client, state, args)
-    if block_given?
+  LS = Command.new(
+    'ls [REMOTE_FILE]...',
+    "List information about remote files. With no arguments, list the \
+     contents of the working directory. When given remote directories as \
+     arguments, list the contents of the directories. When given remote files \
+     as arguments, list the files.",
+    lambda do |client, state, args, output|
       patterns = if args.empty?
         ["#{state.pwd}/*".sub('//', '/')]
       else
@@ -69,98 +103,90 @@ class Commands
           state.contents(client, dir).each do |path|
             matches << File.basename(path) if File.fnmatch(pattern, path)
           end
-          matches.each { |match| yield match }
+          matches.each { |match| output.call(match) }
         rescue DropboxError => error
-          yield error.to_s
+          output.call(error.to_s)
         end
       end
     end
-  end
+  )
 
-  def Commands.mkdir(client, state, args)
-    if args.empty?
-      raise UsageError.new('DIRECTORY...')
-    else
+  MKDIR = Command.new(
+    'mkdir REMOTE_DIR...',
+    "Create remote directories.",
+    lambda do |client, state, args, output|
       args.each do |arg|
         begin
           path = state.resolve_path(arg)
           state.cache[path] = client.file_create_folder(path)
         rescue DropboxError => error
-          yield error.to_s if block_given?
+          output.call(error.to_s)
         end
       end
     end
-  end
+  )
 
-  def Commands.put(client, state, args)
-    case args.length
-    when 1 then from_path = to_path = args[0]
-    when 2 then from_path, to_path = args[0], args[1]
-    else
-      raise UsageError.new('FILE [DESTINATION]')
-    end
-
-    to_path = state.resolve_path(to_path)
-
-    begin
-      File.open(File.expand_path(from_path), 'rb') do |file|
-        state.cache[to_path] = client.put_file(to_path, file)
+  PUT = Command.new(
+    'put LOCAL_FILE [REMOTE_FILE]',
+    "Upload a local file to a remote path. If a remote file of the same name \
+     already exists, Dropbox will rename the upload. When given only a local \
+     file path, the remote path defaults to a file of the same name in the \
+     remote working directory.",
+    lambda do |client, state, args, output|
+      from_path = args[0]
+      if args.length == 2
+        to_path = args[1]
+      else
+        to_path = from_path
       end
-    rescue Exception => error
-      yield error.to_s if block_given?
-    end
-  end
+      to_path = state.resolve_path(to_path)
 
-  def Commands.rm(client, state, args)
-    if args.empty?
-      raise UsageError.new('FILE...')
-    else
+      begin
+        File.open(File.expand_path(from_path), 'rb') do |file|
+          state.cache[to_path] = client.put_file(to_path, file)
+        end
+      rescue Exception => error
+        output.call(error.to_s)
+      end
+    end
+  )
+
+  RM = Command.new(
+    'rm REMOTE_FILE...',
+    "Remove each specified remote file or directory.",
+    lambda do |client, state, args, output|
       state.expand_patterns(client, args).each do |path|
         begin
           client.file_delete(path)
           state.cache.delete(path)
         rescue DropboxError => error
-          yield error.to_s if block_given?
+          output.call(error.to_s)
         end
       end
     end
-  end
+  )
 
-  def Commands.share(client, state, args)
-    if args.empty?
-      raise UsageError.new('FILE...')
-    elsif block_given?
+  SHARE = Command.new(
+    'share REMOTE_FILE...',
+    "Get URLs to share remote files. Shareable links created on Dropbox are \
+     time-limited, but don't require any authentication, so they can be given \
+     out freely. The time limit should allow at least a day of shareability.",
+    lambda do |client, state, args, output|
       state.expand_patterns(client, args).each do |path|
         begin
-          yield "#{path}: #{client.shares(path)['url']}"
+          output.call("#{path}: #{client.shares(path)['url']}")
         rescue DropboxError => error
-          yield error.to_s
+          output.call(error.to_s)
         end
       end
     end
-  end
+  )
 
-  def Commands.shell(cmd)
-    begin
-      IO.popen(cmd) do |pipe|
-        pipe.each_line { |line| yield line.chomp if block_given? }
-      end
-    rescue Interrupt
-    rescue Exception => error
-      yield error.to_s if block_given?
-    end
-  end
+  NAMES = constants.select do |sym|
+     const_get(sym).is_a?(Command)
+  end.map { |sym| sym.to_s.downcase }
 
-  def Commands.names
-    exclude = [:exec, :names, :shell]
-    singleton_methods.reject do |method|
-      exclude.include?(method)
-    end.map do |method|
-      method.to_s
-    end
-  end
-
-  def Commands.exec(input, client, state)
+  def self.exec(input, client, state)
     if input.start_with?('!')
       shell(input[1, input.length - 1]) { |line| puts line }
     elsif not input.empty?
@@ -178,15 +204,30 @@ class Commands
 
       cmd, args = tokens[0], tokens.drop(1)
 
-      if names.include?(cmd)
+      if NAMES.include?(cmd)
         begin
-          send(cmd.to_sym, client, state, args) { |line| puts line }
+          const_get(cmd.upcase.to_sym).exec(client, state, *args) do |line|
+            puts line
+          end
         rescue UsageError => error
-          puts "Usage: #{cmd} #{error}"
+          puts "Usage: #{error}"
         end
       else
         puts "Unrecognized command: #{cmd}"
       end
+    end
+  end
+
+  private
+
+  def self.shell(cmd)
+    begin
+      IO.popen(cmd) do |pipe|
+        pipe.each_line { |line| yield line.chomp if block_given? }
+      end
+    rescue Interrupt
+    rescue Exception => error
+      yield error.to_s if block_given?
     end
   end
 end
