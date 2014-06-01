@@ -94,7 +94,7 @@ describe Commands do
       state.pwd = '/testing'
       lines = []
       Commands::LS.exec(client, state) { |line| lines << line }
-      lines.must_equal(['test'])
+      lines.must_equal(['test  '])
       Commands::RM.exec(client, state, '/testing/test')
     end
 
@@ -103,7 +103,7 @@ describe Commands do
       Commands::MKDIR.exec(client, state, '/testing/test')
       lines = []
       Commands::LS.exec(client, state, '/testing') { |line| lines << line }
-      lines.must_equal(['test'])
+      lines.must_equal(['test  '])
       Commands::RM.exec(client, state, '/testing/test')
     end
   end

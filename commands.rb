@@ -118,18 +118,18 @@ module Commands
         end
       end
 
+      items = []
       patterns.each do |pattern|
         begin
-          matches = []
           dir = File.dirname(pattern)
           state.contents(client, dir).each do |path|
-            matches << File.basename(path) if File.fnmatch(pattern, path)
+            items << File.basename(path) if File.fnmatch(pattern, path)
           end
-          matches.each { |match| output.call(match) }
         rescue DropboxError => error
           output.call(error.to_s)
         end
       end
+      table_output(items).each { |item| output.call(item) }
     end
   )
 
@@ -262,6 +262,7 @@ module Commands
   end
 
   def self.table_output(items)
+    return [] if items.empty?
     columns = get_screen_size
     item_width = items.map { |item| item.length }.max + 2
     column = 0
