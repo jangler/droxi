@@ -105,7 +105,7 @@ Readline.completion_proc = proc do |word|
     []
   end
 
-  options.map { |option| option.gsub(' ', '\ ') }
+  options.map { |option| option.gsub(' ', '\ ').sub(/\\ $/, ' ') }
 end
 
 begin
