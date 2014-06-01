@@ -80,6 +80,7 @@ module Commands
      given, print a list of commands instead.",
     lambda do |client, state, args, output|
       if args.empty?
+        table_output(NAMES).each { |line| output.call(line) }
       else
         cmd_name = args[0]
         if NAMES.include?(cmd_name)
@@ -258,6 +259,22 @@ module Commands
     rescue Exception => error
       yield error.to_s if block_given?
     end
+  end
+
+  def self.table_output(items)
+    columns = get_screen_size
+    item_width = items.map { |item| item.length }.max + 2
+    column = 0
+    lines = ['']
+    items.each do |item|
+      if column != 0 && column + item_width >= columns
+        lines << ''
+        column = 0
+      end
+      lines.last << item.ljust(item_width)
+      column += item_width
+    end
+    lines
   end
 
   def self.wrap_output(text)
