@@ -60,7 +60,11 @@ Readline.completion_proc = proc do |word|
     end
   end
 end
-Readline.completion_append_character = nil
+
+begin
+  Readline.completion_append_character = nil
+rescue NotImplementedError
+end
 
 begin
   while line = Readline.readline(prompt(info, state), true)

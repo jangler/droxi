@@ -1,3 +1,5 @@
+require 'readline'
+
 module Commands
   class UsageError < ArgumentError
   end
@@ -7,7 +9,7 @@ module Commands
 
     def initialize(usage, description, procedure)
       @usage = usage
-      @description = description.squeeze
+      @description = description.squeeze(' ')
       @procedure = procedure
     end
 
@@ -67,6 +69,25 @@ module Commands
           end
         rescue DropboxError => error
           output.call(error.to_s)
+        end
+      end
+    end
+  )
+
+  HELP = Command.new(
+    'help [COMMAND]',
+    "Print usage and help information about a command. If no command is \
+     given, print a list of commands instead.",
+    lambda do |client, state, args, output|
+      if args.empty?
+      else
+        cmd_name = args[0]
+        if NAMES.include?(cmd_name)
+          cmd = const_get(cmd_name.upcase.to_s)
+          output.call(cmd.usage)
+          wrap_output(cmd.description).each { |line| output.call(line) }
+        else
+          output.call("Unrecognized command: #{cmd_name}")
         end
       end
     end
@@ -220,6 +241,14 @@ module Commands
 
   private
 
+  def self.get_screen_size
+    begin
+      Readline.get_screen_size[1]
+    rescue NotImplementedError
+      72
+    end
+  end
+
   def self.shell(cmd)
     begin
       IO.popen(cmd) do |pipe|
@@ -229,5 +258,24 @@ module Commands
     rescue Exception => error
       yield error.to_s if block_given?
     end
+  end
+
+  def self.wrap_output(text)
+    columns = get_screen_size
+    column = 0
+    lines = ['']
+    text.split.each do |word|
+      if column != 0 && column + word.length >= columns
+        lines << ''
+        column = 0
+      end
+      if column != 0
+        lines.last << ' '
+        column += 1
+      end
+      lines.last << word
+      column += word.length
+    end
+    lines
   end
 end
