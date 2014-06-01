@@ -1,0 +1,9 @@
+.TH RUBOX 1 "{date}" "rubox 0.0.0"
+.SH NAME
+rubox \- ftp-like command-line interface to Dropbox
+.SH SYNOPSIS
+rubox
+.SH COMMANDS
+{commands}
+.SH AUTHOR
+Written by Brandon Mulcahy (brandon@jangler.info).
