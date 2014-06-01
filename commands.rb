@@ -151,6 +151,15 @@ class Commands
     end
   end
 
+  def Commands.names
+    exclude = [:exec, :names, :shell]
+    singleton_methods.reject do |method|
+      exclude.include?(method)
+    end.map do |method|
+      method.to_s
+    end
+  end
+
   def Commands.exec(input, client, state)
     if input.start_with?('!')
       shell(input[1, input.length - 1]) { |line| puts line }
@@ -167,15 +176,11 @@ class Commands
         end
       end
 
-      cmd, args = tokens[0].to_sym, tokens.drop(1)
+      cmd, args = tokens[0], tokens.drop(1)
 
-      methods = singleton_methods.reject do |method| 
-        [:exec, :shell].include?(method)
-      end
-
-      if methods.include?(cmd)
+      if names.include?(cmd)
         begin
-          send(cmd, client, state, args) { |line| puts line }
+          send(cmd.to_sym, client, state, args) { |line| puts line }
         rescue UsageError => error
           puts "Usage: #{cmd} #{error}"
         end
