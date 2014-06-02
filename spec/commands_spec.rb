@@ -35,7 +35,7 @@ describe Commands do
   original_dir = Dir.pwd
 
   client = DropboxClient.new(Settings[:access_token])
-  state = State.new
+  state = State.new(client)
 
   TEMP_FILENAME = 'test.txt'
   TEMP_FOLDER = 'test'

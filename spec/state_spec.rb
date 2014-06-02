@@ -6,19 +6,19 @@ require_relative '../lib/droxi/settings'
 describe State do
   describe 'when initializing' do
     it 'must set pwd to root' do
-      State.new.pwd.must_equal '/'
+      State.new(nil).pwd.must_equal '/'
     end
 
     it 'must set oldpwd to saved oldpwd' do
       if Settings.include?(:oldpwd)
-        State.new.oldpwd.must_equal Settings[:oldpwd]
+        State.new(nil).oldpwd.must_equal Settings[:oldpwd]
       end
     end
   end
 
   describe 'when setting pwd' do
     it 'must change pwd and set oldpwd to previous pwd' do
-      state = State.new
+      state = State.new(nil)
       state.pwd = '/testing'
       state.pwd.must_equal '/testing'
       state.pwd = '/'
@@ -27,7 +27,7 @@ describe State do
   end
 
   describe 'when resolving path' do
-    state = State.new
+    state = State.new(nil)
 
     it 'must resolve root to itself' do
       state.resolve_path('/').must_equal '/'

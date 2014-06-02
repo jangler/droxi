@@ -1,12 +1,15 @@
-require 'fileutils'
-
-CONFIG_FILE_PATH = File.expand_path('~/.config/droxi/droxirc')
-
+# Manages persistent (session-independent) application state.
 class Settings
+
+  # The path of the application's rc file.
+  CONFIG_FILE_PATH = File.expand_path('~/.config/droxi/droxirc')
+
+  # Return the value of a setting, or +nil+ if the setting does not exist.
   def Settings.[](key)
     @@settings[key]
   end
 
+  # Set the value of a setting.
   def Settings.[]=(key, value)
     if value != @@settings[key]
       @@dirty = true
@@ -14,10 +17,12 @@ class Settings
     end
   end
 
+  # Return +true+ if the setting exists, +false+ otherwise.
   def Settings.include?(key)
     @@settings.include?(key)
   end
 
+  # Delete the setting and return its value.
   def Settings.delete(key)
     if @@settings.include?(key)
       @@dirty = true
@@ -25,14 +30,17 @@ class Settings
     end
   end
 
-  def Settings.write
+  # Write settings to disk.
+  def Settings.save
     if @@dirty
       @@dirty = false
+      require 'fileutils'
       FileUtils.mkdir_p(File.dirname(CONFIG_FILE_PATH))
       File.open(CONFIG_FILE_PATH, 'w') do |file|
         @@settings.each_pair { |k, v| file.write("#{k}=#{v}\n") }
       end
     end
+    nil
   end
 
   private
@@ -67,4 +75,5 @@ class Settings
 
   @@settings = read
   @@dirty = false
+
 end

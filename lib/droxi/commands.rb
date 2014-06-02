@@ -1,18 +1,36 @@
-require 'readline'
-
+# Module containing definitions for client commands.
 module Commands
+
+  # Exception indicating that a client command was given the wrong number of
+  # arguments.
   class UsageError < ArgumentError
   end
 
+  # A client command. Contains metadata as well as execution procedure.
   class Command
-    attr_reader :usage, :description
 
+    # A +String+ specifying the usage of the command in the style of a man page
+    # synopsis. Optional arguments are enclosed in brackets; varargs-style
+    # arguments are suffixed with an ellipsis.
+    attr_reader :usage
+
+    # A complete description of the command, suitable for display to the end
+    # user.
+    attr_reader :description
+
+    # Create a new +Command+ with the given metadata and a +Proc+ specifying
+    # its behavior. The +Proc+ will receive four arguments: the
+    # +DropboxClient+, the +State+, an +Array+ of command-line arguments, and
+    # a +Proc+ to be called for output.
     def initialize(usage, description, procedure)
       @usage = usage
       @description = description.squeeze(' ')
       @procedure = procedure
     end
 
+    # Attempt to execute the +Command+, yielding lines of output if a block is
+    # given. Raises a +UsageError+ if an invalid number of command-line
+    # arguments is given.
     def exec(client, state, *args)
       if num_args_ok?(args.length)
         block = proc { |line| yield line if block_given? }
@@ -21,6 +39,21 @@ module Commands
         raise UsageError.new(@usage)
       end
     end
+
+    # Return a +String+ describing the type of argument at the given index.
+    # If the index is out of range, return the type of the final argument. If
+    # the +Command+ takes no arguments, return +nil+.
+    def type_of_arg(index)
+      args = @usage.split.drop(1)
+      if args.empty?
+        nil
+      else
+        index = [index, args.length - 1].min
+        args[index].tr('[].', '')
+      end
+    end
+
+    private
 
     def num_args_ok?(num_args)
       args = @usage.split.drop(1)
@@ -34,14 +67,9 @@ module Commands
       end
       (min_args..max_args).include?(num_args)
     end
-
-    def type_of_arg(index)
-      args = @usage.split.drop(1)
-      index = [index, args.length - 1].min
-      args[index].tr('[].', '')
-    end
   end
 
+  # Change the remote working directory.
   CD = Command.new(
     'cd [REMOTE_DIR]',
     "Change the remote working directory. With no arguments, changes to the \
@@ -55,7 +83,7 @@ module Commands
         state.pwd = state.oldpwd
       else
         path = state.resolve_path(args[0])
-        if state.is_dir?(client, path)
+        if state.directory?(path)
           state.pwd = path
         else
           output.call('Not a directory')
@@ -64,6 +92,7 @@ module Commands
     end
   )
 
+  # Terminate the session.
   EXIT = Command.new(
     'exit',
     "Exit the program.",
@@ -72,12 +101,13 @@ module Commands
     end
   )
 
+  # Download remote files.
   GET = Command.new(
     'get REMOTE_FILE...',
     "Download each specified remote file to a file of the same name in the \
      local working directory.",
     lambda do |client, state, args, output|
-      state.expand_patterns(client, args).each do |path|
+      state.expand_patterns(args).each do |path|
         begin
           contents = client.get_file(path)
           File.open(File.basename(path), 'wb') do |file|
@@ -90,6 +120,7 @@ module Commands
     end
   )
 
+  # List commands, or print information about a specific command.
   HELP = Command.new(
     'help [COMMAND]',
     "Print usage and help information about a command. If no command is \
@@ -110,6 +141,7 @@ module Commands
     end
   )
 
+  # Change the local working directory.
   LCD = Command.new(
     'lcd [LOCAL_DIR]',
     "Change the local working directory. With no arguments, changes to the \
@@ -134,6 +166,7 @@ module Commands
     end
   )
 
+  # List remote files.
   LS = Command.new(
     'ls [REMOTE_FILE]...',
     "List information about remote files. With no arguments, list the \
@@ -147,7 +180,7 @@ module Commands
         args.map do |path|
           path = state.resolve_path(path)
           begin
-            if state.is_dir?(client, path)
+            if state.directory?(path)
               "#{path}/*".sub('//', '/')
             else
               path
@@ -162,7 +195,7 @@ module Commands
       patterns.each do |pattern|
         begin
           dir = File.dirname(pattern)
-          state.contents(client, dir).each do |path|
+          state.contents(dir).each do |path|
             items << File.basename(path) if File.fnmatch(pattern, path)
           end
         rescue DropboxError => error
@@ -173,6 +206,7 @@ module Commands
     end
   )
 
+  # Create a remote directory.
   MKDIR = Command.new(
     'mkdir REMOTE_DIR...',
     "Create remote directories.",
@@ -188,6 +222,7 @@ module Commands
     end
   )
 
+  # Upload a local file.
   PUT = Command.new(
     'put LOCAL_FILE [REMOTE_FILE]',
     "Upload a local file to a remote path. If a remote file of the same name \
@@ -213,11 +248,12 @@ module Commands
     end
   )
 
+  # Remove remote files.
   RM = Command.new(
     'rm REMOTE_FILE...',
     "Remove each specified remote file or directory.",
     lambda do |client, state, args, output|
-      state.expand_patterns(client, args).each do |path|
+      state.expand_patterns(args).each do |path|
         begin
           client.file_delete(path)
           state.cache.delete(path)
@@ -228,6 +264,7 @@ module Commands
     end
   )
 
+  # Get links to remote files.
   SHARE = Command.new(
     'share REMOTE_FILE...',
     "Create Dropbox links to publicly share remote files. The links are \
@@ -235,7 +272,7 @@ module Commands
      this method are set to expire far enough in the future so that \
      expiration is effectively not an issue.",
     lambda do |client, state, args, output|
-      state.expand_patterns(client, args).each do |path|
+      state.expand_patterns(args).each do |path|
         begin
           output.call("#{path}: #{client.shares(path)['url']}")
         rescue DropboxError => error
@@ -245,10 +282,12 @@ module Commands
     end
   )
 
+  # +Array+ of all command names.
   NAMES = constants.select do |sym|
      const_get(sym).is_a?(Command)
   end.map { |sym| sym.to_s.downcase }
 
+  # Parse and execute a line of user input in the given context.
   def self.exec(input, client, state)
     if input.start_with?('!')
       shell(input[1, input.length - 1]) { |line| puts line }
@@ -284,6 +323,7 @@ module Commands
   private
 
   def self.get_screen_size
+    require 'readline'
     begin
       Readline.get_screen_size[1]
     rescue NotImplementedError

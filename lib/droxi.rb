@@ -5,12 +5,15 @@ require_relative 'droxi/commands'
 require_relative 'droxi/settings'
 require_relative 'droxi/state'
 
+# Command-line Dropbox client module.
 module Droxi
-  APP_KEY = '5sufyfrvtro9zp7'
-  APP_SECRET = 'h99ihzv86jyypho'
 
+  # Attempt to authorize the user for app usage.
   def self.authorize
-    flow = DropboxOAuth2FlowNoRedirect.new(APP_KEY, APP_SECRET)
+    app_key = '5sufyfrvtro9zp7'
+    app_secret = 'h99ihzv86jyypho'
+
+    flow = DropboxOAuth2FlowNoRedirect.new(app_key, app_secret)
 
     authorize_url = flow.start()
 
@@ -34,8 +37,12 @@ module Droxi
     rescue DropboxError
       puts 'Invalid authorization code.'
     end
+
+    nil
   end
 
+  # Get the access token for the user, requesting authorization if no token
+  # exists.
   def self.get_access_token
     until Settings.include?(:access_token)
       authorize()
@@ -43,11 +50,14 @@ module Droxi
     Settings[:access_token]
   end
 
+  # Print a prompt message reflecting the current state of the application.
   def self.prompt(info, state)
     "droxi #{info['email']}:#{state.pwd}> "
   end
 
-  def self.file_complete(word, dir_only=false)
+  # Return an +Array+ of potential tab-completions for a partial local file
+  # path.
+  def self.complete_file(word, dir_only=false)
     begin
       path = File.expand_path(word)
     rescue ArgumentError
@@ -58,7 +68,14 @@ module Droxi
     else
       dir = File.dirname(path)
     end
-    Dir.entries(dir).map do |file|
+
+    entries = begin
+      Dir.entries(dir).reject { |entry| entry.end_with?('.') }
+    rescue
+      []
+    end
+
+    entries.map do |file|
       (dir + '/').sub('//', '/') + file
     end.select do |file|
       file.start_with?(path) && !(dir_only && !File.directory?(file))
@@ -78,16 +95,19 @@ module Droxi
     end
   end
 
-  def self.dir_complete(word)
-    file_complete(word, true)
+  # Return an +Array+ of potential tab-completions for a partial local
+  # directory path.
+  def self.complete_dir(word)
+    complete_file(word, true)
   end
 
+  # Run the client.
   def self.run
     client = DropboxClient.new(get_access_token)
     info = client.account_info
     puts "Logged in as #{info['display_name']} (#{info['email']})"
 
-    state = State.new
+    state = State.new(client)
 
     Readline.completion_proc = proc do |word|
       words = Readline.line_buffer.split
@@ -105,24 +125,11 @@ module Droxi
         Commands::NAMES.select { |name| name.start_with? word }.map do |name|
           name + ' '
         end
-      when 'LOCAL_FILE'
-        file_complete(word)
-      when 'LOCAL_DIR'
-        dir_complete(word)
-      when 'REMOTE_FILE'
-        begin
-          state.file_complete(client, word)
-        rescue DropboxError
-          []
-        end
-      when 'REMOTE_DIR'
-        begin
-          state.dir_complete(client, word)
-        rescue DropboxError
-          []
-        end
-      else
-        []
+      when 'LOCAL_FILE'  then complete_file(word)
+      when 'LOCAL_DIR'   then complete_dir(word)
+      when 'REMOTE_FILE' then state.complete_file(word)
+      when 'REMOTE_DIR'  then state.complete_dir(word)
+      else []
       end
 
       options.map { |option| option.gsub(' ', '\ ').sub(/\\ $/, ' ') }
@@ -143,7 +150,8 @@ module Droxi
       puts
     end
 
+    # Set pwd so that the oldpwd setting is set to pwd
     state.pwd = '/'
-    Settings.write
+    Settings.save
   end
 end
