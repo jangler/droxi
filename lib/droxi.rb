@@ -2,6 +2,7 @@ require 'dropbox_sdk'
 require 'readline'
 
 require_relative 'droxi/commands'
+require_relative 'droxi/complete'
 require_relative 'droxi/settings'
 require_relative 'droxi/state'
 
@@ -55,52 +56,6 @@ module Droxi
     "droxi #{info['email']}:#{state.pwd}> "
   end
 
-  # Return an +Array+ of potential tab-completions for a partial local file
-  # path.
-  def self.complete_file(word, dir_only=false)
-    begin
-      path = File.expand_path(word)
-    rescue ArgumentError
-      return []
-    end
-    if word.empty? || (word.length > 1 && word.end_with?('/'))
-      dir = path
-    else
-      dir = File.dirname(path)
-    end
-
-    entries = begin
-      Dir.entries(dir).reject { |entry| entry.end_with?('.') }
-    rescue
-      []
-    end
-
-    entries.map do |file|
-      (dir + '/').sub('//', '/') + file
-    end.select do |file|
-      file.start_with?(path) && !(dir_only && !File.directory?(file))
-    end.map do |file|
-      if File.directory?(file)
-        file << '/'
-      else
-        file << ' '
-      end
-      if word.start_with?('/')
-        file
-      elsif word.start_with?('~')
-        file.sub(/\/home\/[^\/]+/, '~')
-      else
-        file.sub(Dir.pwd + '/', '')
-      end
-    end
-  end
-
-  # Return an +Array+ of potential tab-completions for a partial local
-  # directory path.
-  def self.complete_dir(word)
-    complete_file(word, true)
-  end
-
   # Run the client.
   def self.run
     client = DropboxClient.new(get_access_token)
@@ -125,8 +80,8 @@ module Droxi
         Commands::NAMES.select { |name| name.start_with? word }.map do |name|
           name + ' '
         end
-      when 'LOCAL_FILE'  then complete_file(word)
-      when 'LOCAL_DIR'   then complete_dir(word)
+      when 'LOCAL_FILE'  then Complete.local(word)
+      when 'LOCAL_DIR'   then Complete.local_dir(word)
       when 'REMOTE_FILE' then state.complete_file(word)
       when 'REMOTE_DIR'  then state.complete_dir(word)
       else []

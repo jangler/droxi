@@ -1,0 +1,61 @@
+# Module containing tab-completion logic and methods.
+module Complete
+
+  # Return the directory in which to search for potential local tab-completions
+  # for a +String+. Defaults to working directory in case of bogus input.
+  def self.local_search_path(string)
+    begin
+      File.expand_path(strip_filename(string))
+    rescue
+      Dir.pwd
+    end
+  end
+
+  # Returns an +Array+ of potential local tab-completions for a +String+.
+  def self.local(string)
+    dir = local_search_path(string)
+    name = string.end_with?('/') ? '' : File.basename(string)
+
+    Dir.entries(dir).select do |entry|
+      entry.start_with?(name) && !/^\.{1,2}$/.match(entry)
+    end.map do |entry|
+      entry << (File.directory?(dir + '/' + entry) ? '/' : ' ')
+      string + entry[name.length, entry.length]
+    end
+  end
+
+  # Returns an +Array+ of potential local tab-completions for a +String+,
+  # including only directories.
+  def self.local_dir(string)
+    local(string).select { |result| result.end_with?('/') }
+  end
+
+  # Return the directory in which to search for potential remote
+  # tab-completions for a +String+.
+  def self.remote_search_path(string, state)
+    path = case
+    when string.empty? then state.pwd + '/'
+    when string.start_with?('/') then string
+    else state.pwd + '/' + string
+    end
+
+    strip_filename(collapse(path))
+  end
+
+  private
+
+  def self.strip_filename(path)
+    if path != '/'
+      path.end_with?('/') ? path.sub(/\/$/, '') : File.dirname(path)
+    else
+      path
+    end
+  end
+
+  def self.collapse(path)
+    nil while path.sub!(/[^\/]+\/\.\.\//, '/')
+    nil while path.sub!('./', '')
+    path
+  end
+
+end
