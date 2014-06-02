@@ -42,6 +42,27 @@ module Complete
     strip_filename(collapse(path))
   end
 
+  # Returns an +Array+ of potential remote tab-completions for a +String+.
+  def self.remote(string, state)
+    dir = remote_search_path(string, state)
+    name = string.end_with?('/') ? '' : File.basename(string)
+
+    state.contents(dir).map do |entry|
+      File.basename(entry) 
+    end.select do |entry|
+      entry.start_with?(name) && !/^\.{1,2}$/.match(entry)
+    end.map do |entry|
+      entry << (state.directory?(dir + '/' + entry) ? '/' : ' ')
+      string + entry[name.length, entry.length]
+    end
+  end
+
+  # Returns an +Array+ of potential remote tab-completions for a +String+,
+  # including only directories.
+  def self.remote_dir(string, state)
+    remote(string, state).select { |result| result.end_with?('/') }
+  end
+
   private
 
   def self.strip_filename(path)

@@ -64,6 +64,7 @@ class State
 
   # Return +true+ if the Dropbox path is a directory, +false+ otherwise.
   def directory?(path)
+    path = path.sub('//', '/')
     metadata(File.dirname(path))
     @cache.include?(path) && @cache[path]['is_dir']
   end
@@ -106,57 +107,11 @@ class State
     end.flatten
   end
 
-  # Return an +Array+ of potential tab-completions for a partial Dropbox file
-  # path.
-  def complete_file(word)
-    tab_complete(word, false)
-  end
-
-  # Return an +Array+ of potential tab-completions for a partial Dropbox
-  # directory path.
-  def complete_dir(word)
-    tab_complete(word, true)
-  end
-
   private
 
   def have_all_info_for(path)
     @cache.include?(path) &&
     (@cache[path].include?('contents') || !@cache[path]['is_dir'])
-  end
-
-  def complete(path, prefix_length, dir_only)
-    @cache.keys.select do |key|
-      key.start_with?(path) && key != path &&
-      !(dir_only && !@cache[key]['is_dir'])
-    end.map do |key|
-      if @cache[key]['is_dir']
-        key += '/' 
-      else
-        key += ' '
-      end
-      key[prefix_length, key.length]
-    end
-  end
-
-  def tab_complete(word, dir_only)
-    begin
-      path = resolve_path(word)
-      prefix_length = path.length - word.length
-
-      if word.end_with?('/')
-        # Treat word as directory
-        metadata(path)
-        prefix_length += 1
-      else
-        # Treat word as file
-        metadata(File.dirname(path))
-      end
-
-      complete(path, prefix_length, dir_only)
-    rescue DropboxError
-      []
-    end
   end
 
 end

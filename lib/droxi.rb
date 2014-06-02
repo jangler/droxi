@@ -82,8 +82,8 @@ module Droxi
         end
       when 'LOCAL_FILE'  then Complete.local(word)
       when 'LOCAL_DIR'   then Complete.local_dir(word)
-      when 'REMOTE_FILE' then state.complete_file(word)
-      when 'REMOTE_DIR'  then state.complete_dir(word)
+      when 'REMOTE_FILE' then Complete.remote(word, state)
+      when 'REMOTE_DIR'  then Complete.remote_dir(word, state)
       else []
       end
 
