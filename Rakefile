@@ -18,7 +18,7 @@ task :gem do
   sh 'gem install ./droxi-*.gem'
 end
 
-desc 'generate man page'
+desc 'install man page (must have root permissions)'
 task :man do
   gemspec = IO.read('droxi.gemspec')
 
@@ -42,4 +42,15 @@ task :man do
 
   Dir.mkdir('build') unless Dir.exists?('build')
   IO.write('build/droxi.1', contents)
+
+  prefix = ENV['PREFIX'] || ENV['prefix'] || '/usr/local'
+  install_path = "#{prefix}/share/man/man1"
+
+  require 'fileutils'
+  begin
+    FileUtils.mkdir_p(install_path)
+    FileUtils.cp('build/droxi.1', install_path)
+  rescue
+    puts 'Failed to install man page. This target must be run as root.'
+  end
 end
