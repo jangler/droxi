@@ -87,9 +87,8 @@ describe Commands do
   end
 
   describe 'when executing the get command' do
-    Dir.chdir(original_dir)
-
     it 'must get a file of the same name when given args' do
+      Dir.chdir(original_dir)
       put_temp_file(client, state)
       Commands::GET.exec(client, state, '/testing/test.txt')
       delete_temp_file(client, state)
@@ -99,25 +98,27 @@ describe Commands do
   end
 
   describe 'when executing the lcd command' do
-    Dir.chdir(original_dir)
-
     it 'must change to home directory when given no args' do
+      Dir.chdir(original_dir)
       Commands::LCD.exec(client, state)
       Dir.pwd.must_equal File.expand_path('~')
     end
 
     it 'must change to specific directory when specified' do
+      Dir.chdir(original_dir)
       Commands::LCD.exec(client, state, '/home')
       Dir.pwd.must_equal File.expand_path('/home')
     end
 
     it 'must set oldpwd correctly' do
+      Dir.chdir(original_dir)
       oldpwd = Dir.pwd
       Commands::LCD.exec(client, state, '/')
       state.local_oldpwd.must_equal oldpwd
     end
 
     it 'must change to previous directory when given -' do
+      Dir.chdir(original_dir)
       oldpwd = Dir.pwd
       Commands::LCD.exec(client, state, '/')
       Commands::LCD.exec(client, state, '-')
@@ -125,14 +126,13 @@ describe Commands do
     end
 
     it 'must fail if given bogus directory name' do
+      Dir.chdir(original_dir)
       pwd = Dir.pwd
       oldpwd = state.local_oldpwd
       Commands::LCD.exec(client, state, '/bogus_dir')
       Dir.pwd.must_equal pwd
       state.local_oldpwd.must_equal oldpwd
     end
-
-    Dir.chdir(original_dir)
   end
 
   describe 'when executing the ls command' do
@@ -164,9 +164,8 @@ describe Commands do
   end
 
   describe 'when executing the put command' do
-    Dir.chdir(original_dir)
-
     it 'must put a file of the same name when given 1 arg' do
+      Dir.chdir(original_dir)
       state.pwd = '/testing'
       `echo hello > test.txt`
       Commands::PUT.exec(client, state, 'test.txt')
@@ -176,6 +175,7 @@ describe Commands do
     end
 
     it 'must put a file with the stated name when given 2 args' do
+      Dir.chdir(original_dir)
       state.pwd = '/testing'
       `echo hello > test.txt`
       Commands::PUT.exec(client, state, 'test.txt', 'dest.txt')
