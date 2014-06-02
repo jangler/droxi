@@ -3,8 +3,8 @@ Gem::Specification.new do |s|
   s.version     = '0.0.1'
   s.date        = '2014-06-02'
   s.summary     = 'ftp-like command-line interface to Dropbox'
-  s.description = "a command-line Dropbox interface inspired by GNU \
-                   coreutils, GNU ftp, and lftp. features smart tab \
+  s.description = "A command-line Dropbox interface inspired by GNU \
+                   coreutils, GNU ftp, and lftp. Features include smart tab \
                    completion, globbing, and interactive help.".squeeze(' ')
   s.authors     = ['Brandon Mulcahy']
   s.email       = 'brandon@jangler.info'

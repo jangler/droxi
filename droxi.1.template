@@ -3,6 +3,9 @@
 droxi \- ftp-like command-line interface to Dropbox
 .SH SYNOPSIS
 droxi
+.SH DESCRIPTION
+A command-line Dropbox interface inspired by GNU coreutils, GNU ftp, and lftp.
+Features include smart tab completion, globbing, and interactive help.
 .SH COMMANDS
 {commands}
 .SH AUTHOR
