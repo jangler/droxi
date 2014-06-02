@@ -1,7 +1,7 @@
 require 'minitest/autorun'
 
-require_relative '../state'
-require_relative '../settings'
+require_relative '../lib/droxi/state'
+require_relative '../lib/droxi/settings'
 
 describe State do
   describe 'when initializing' do

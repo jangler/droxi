@@ -1,9 +1,9 @@
 require 'dropbox_sdk'
 require 'minitest/autorun'
 
-require_relative '../commands'
-require_relative '../settings'
-require_relative '../state'
+require_relative '../lib/droxi/commands'
+require_relative '../lib/droxi/settings'
+require_relative '../lib/droxi/state'
 
 def ignore(error_class)
   begin

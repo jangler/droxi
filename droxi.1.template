@@ -1,4 +1,4 @@
-.TH DROXI 1 "{date}" "droxi 0.0.0"
+.TH DROXI 1 "{date}" "droxi {version}"
 .SH NAME
 droxi \- ftp-like command-line interface to Dropbox
 .SH SYNOPSIS

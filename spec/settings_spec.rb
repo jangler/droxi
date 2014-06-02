@@ -1,6 +1,6 @@
 require 'minitest/autorun'
 
-require_relative '../settings'
+require_relative '../lib/droxi/settings'
 
 describe Settings do
   KEY, VALUE = :test_key, :test_value
