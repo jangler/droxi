@@ -2,10 +2,12 @@
 .SH NAME
 droxi \- ftp-like command-line interface to Dropbox
 .SH SYNOPSIS
-droxi
+droxi [COMMAND] [ARGUMENT]...
 .SH DESCRIPTION
 A command-line Dropbox interface inspired by GNU coreutils, GNU ftp, and lftp.
-Features include smart tab completion, globbing, and interactive help.
+Features include smart tab completion, globbing, and interactive help. If
+invoked without arguments, runs in interactive mode. If invoked with arguments,
+parses the arguments as a command invocation, executes the command, and exits.
 .SH COMMANDS
 {commands}
 .SH AUTHOR

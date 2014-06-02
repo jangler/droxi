@@ -56,13 +56,10 @@ module Droxi
     "droxi #{info['email']}:#{state.pwd}> "
   end
 
-  # Run the client.
-  def self.run
-    client = DropboxClient.new(get_access_token)
+  # Run the client in interactive mode.
+  def self.run_interactive(client, state)
     info = client.account_info
     puts "Logged in as #{info['display_name']} (#{info['email']})"
-
-    state = State.new(client)
 
     Readline.completion_proc = proc do |word|
       words = Readline.line_buffer.split
@@ -109,4 +106,22 @@ module Droxi
     state.pwd = '/'
     Settings.save
   end
+
+  # Run the client.
+  def self.run(*args)
+    client = DropboxClient.new(get_access_token)
+    state = State.new(client)
+
+    if args.empty?
+      run_interactive(client, state)
+    else
+      cmd = args.map { |arg| arg.gsub(' ', '\ ') }.join(' ')
+      begin
+        Commands.exec(cmd, client, state)
+      rescue Interrupt
+        puts
+      end
+    end
+  end
+
 end

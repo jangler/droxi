@@ -1,4 +1,4 @@
 #!/usr/bin/env ruby
 
 require 'droxi'
-Droxi.run
+Droxi.run(*ARGV)
