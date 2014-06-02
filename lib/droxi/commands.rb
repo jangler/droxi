@@ -25,7 +25,9 @@ module Commands
     def num_args_ok?(num_args)
       args = @usage.split.drop(1)
       min_args = args.reject { |arg| arg.start_with?('[') }.length
-      if args.last.end_with?('...')
+      if args.empty?
+        max_args = 0
+      elsif args.last.end_with?('...')
         max_args = num_args
       else
         max_args = args.length
@@ -59,6 +61,14 @@ module Commands
           output.call('Not a directory')
         end
       end
+    end
+  )
+
+  EXIT = Command.new(
+    'exit',
+    "Exit the program.",
+    lambda do |client, state, args, output|
+      state.exit_requested = true
     end
   )
 
@@ -220,9 +230,10 @@ module Commands
 
   SHARE = Command.new(
     'share REMOTE_FILE...',
-    "Get URLs to share remote files. Shareable links created on Dropbox are \
-     time-limited, but don't require any authentication, so they can be given \
-     out freely. The time limit should allow at least a day of shareability.",
+    "Create Dropbox links to publicly share remote files. The links are \
+     shortened and direct to 'preview' pages of the files. Links created by \
+     this method are set to expire far enough in the future so that \
+     expiration is effectively not an issue.",
     lambda do |client, state, args, output|
       state.expand_patterns(client, args).each do |path|
         begin

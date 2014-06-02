@@ -19,7 +19,13 @@ module Droxi
     puts '2. Click "Allow" (you might have to log in first)'
     puts '3. Copy the authorization code'
     print 'Enter the authorization code here: '
-    code = gets.strip
+    code = $stdin.gets
+    if code
+      code.strip!
+    else
+      puts
+      exit
+    end
 
     # This will fail if the user gave us an invalid authorization code
     begin
@@ -128,10 +134,11 @@ module Droxi
     end
 
     begin
-      while line = Readline.readline(prompt(info, state), true)
+      while !state.exit_requested &&
+            line = Readline.readline(prompt(info, state), true)
         Commands.exec(line.chomp, client, state)
       end
-      puts
+      puts if !line
     rescue Interrupt
       puts
     end
