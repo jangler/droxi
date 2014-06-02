@@ -115,6 +115,7 @@ module Commands
           File.open(File.basename(path), 'wb') do |file|
             file.write(contents)
           end
+          output.call("#{File.basename(path)} <- #{path}")
         rescue DropboxError => error
           output.call(error.to_s)
         end
@@ -208,6 +209,23 @@ module Commands
     end
   )
 
+  # Get temporary links to remote files.
+  MEDIA = Command.new(
+    'media REMOTE_FILE...',
+    "Create Dropbox links to publicly share remote files. The links are \
+     time-limited and link directly to the files themselves.",
+    lambda do |client, state, args, output|
+      state.expand_patterns(args).each do |path|
+        begin
+          url = client.media(path)['url']
+          output.call("#{File.basename(path)} -> #{url}")
+        rescue DropboxError => error
+          output.call(error.to_s)
+        end
+      end
+    end
+  )
+
   # Create a remote directory.
   MKDIR = Command.new(
     'mkdir REMOTE_DIR...',
@@ -242,7 +260,9 @@ module Commands
 
       begin
         File.open(File.expand_path(from_path), 'rb') do |file|
-          state.cache[to_path] = client.put_file(to_path, file)
+          data = client.put_file(to_path, file)
+          state.cache[data['path']] = data
+          output.call("#{from_path} -> #{data['path']}")
         end
       rescue Exception => error
         output.call(error.to_s)
@@ -266,7 +286,7 @@ module Commands
     end
   )
 
-  # Get links to remote files.
+  # Get permanent links to remote files.
   SHARE = Command.new(
     'share REMOTE_FILE...',
     "Create Dropbox links to publicly share remote files. The links are \
@@ -276,7 +296,8 @@ module Commands
     lambda do |client, state, args, output|
       state.expand_patterns(args).each do |path|
         begin
-          output.call("#{path}: #{client.shares(path)['url']}")
+          url = client.shares(path)['url']
+          output.call("#{File.basename(path)} -> #{url}")
         rescue DropboxError => error
           output.call(error.to_s)
         end

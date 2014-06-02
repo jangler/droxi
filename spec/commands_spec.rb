@@ -44,6 +44,10 @@ describe Commands do
   ignore(DropboxError) { client.file_delete("/#{TEST_FOLDER}") }
   ignore(DropboxError) { client.file_create_folder("/#{TEST_FOLDER}") }
 
+  before do
+    Dir.chdir(original_dir)
+  end
+
   describe 'when executing a shell command' do
     it 'must yield the output' do
       lines = []
@@ -88,7 +92,6 @@ describe Commands do
 
   describe 'when executing the get command' do
     it 'must get a file of the same name when given args' do
-      Dir.chdir(original_dir)
       put_temp_file(client, state)
       Commands::GET.exec(client, state, '/testing/test.txt')
       delete_temp_file(client, state)
@@ -99,26 +102,22 @@ describe Commands do
 
   describe 'when executing the lcd command' do
     it 'must change to home directory when given no args' do
-      Dir.chdir(original_dir)
       Commands::LCD.exec(client, state)
       Dir.pwd.must_equal File.expand_path('~')
     end
 
     it 'must change to specific directory when specified' do
-      Dir.chdir(original_dir)
       Commands::LCD.exec(client, state, '/home')
       Dir.pwd.must_equal File.expand_path('/home')
     end
 
     it 'must set oldpwd correctly' do
-      Dir.chdir(original_dir)
       oldpwd = Dir.pwd
       Commands::LCD.exec(client, state, '/')
       state.local_oldpwd.must_equal oldpwd
     end
 
     it 'must change to previous directory when given -' do
-      Dir.chdir(original_dir)
       oldpwd = Dir.pwd
       Commands::LCD.exec(client, state, '/')
       Commands::LCD.exec(client, state, '-')
@@ -126,7 +125,6 @@ describe Commands do
     end
 
     it 'must fail if given bogus directory name' do
-      Dir.chdir(original_dir)
       pwd = Dir.pwd
       oldpwd = state.local_oldpwd
       Commands::LCD.exec(client, state, '/bogus_dir')
@@ -155,6 +153,17 @@ describe Commands do
     end
   end
 
+  describe 'when executing the media command' do
+    it 'must yield URL when given file path' do
+      put_temp_file(client, state)
+      to_path = "/#{TEST_FOLDER}/#{TEMP_FILENAME}"
+      lines = get_output(:MEDIA, client, state, to_path)
+      delete_temp_file(client, state)
+      lines.length.must_equal 1
+      /https:\/\/.+\..+\//.match(lines[0]).wont_equal nil
+    end
+  end
+
   describe 'when executing the mkdir command' do
     it 'must create a directory when given args' do
       Commands::MKDIR.exec(client, state, '/testing/test')
@@ -165,7 +174,6 @@ describe Commands do
 
   describe 'when executing the put command' do
     it 'must put a file of the same name when given 1 arg' do
-      Dir.chdir(original_dir)
       state.pwd = '/testing'
       `echo hello > test.txt`
       Commands::PUT.exec(client, state, 'test.txt')
@@ -175,7 +183,6 @@ describe Commands do
     end
 
     it 'must put a file with the stated name when given 2 args' do
-      Dir.chdir(original_dir)
       state.pwd = '/testing'
       `echo hello > test.txt`
       Commands::PUT.exec(client, state, 'test.txt', 'dest.txt')
