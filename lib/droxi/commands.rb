@@ -1,3 +1,5 @@
+require_relative 'text'
+
 # Module containing definitions for client commands.
 module Commands
 
@@ -127,13 +129,13 @@ module Commands
      given, print a list of commands instead.",
     lambda do |client, state, args, output|
       if args.empty?
-        table_output(NAMES).each { |line| output.call(line) }
+        Text.table(NAMES).each { |line| output.call(line) }
       else
         cmd_name = args[0]
         if NAMES.include?(cmd_name)
           cmd = const_get(cmd_name.upcase.to_s)
           output.call(cmd.usage)
-          wrap_output(cmd.description).each { |line| output.call(line) }
+          Text.wrap(cmd.description).each { |line| output.call(line) }
         else
           output.call("Unrecognized command: #{cmd_name}")
         end
@@ -202,7 +204,7 @@ module Commands
           output.call(error.to_s)
         end
       end
-      table_output(items).each { |item| output.call(item) }
+      Text.table(items).each { |item| output.call(item) }
     end
   )
 
@@ -322,15 +324,6 @@ module Commands
 
   private
 
-  def self.get_screen_size
-    require 'readline'
-    begin
-      Readline.get_screen_size[1]
-    rescue NotImplementedError
-      72
-    end
-  end
-
   def self.shell(cmd)
     begin
       IO.popen(cmd) do |pipe|
@@ -342,39 +335,4 @@ module Commands
     end
   end
 
-  def self.table_output(items)
-    return [] if items.empty?
-    columns = get_screen_size
-    item_width = items.map { |item| item.length }.max + 2
-    column = 0
-    lines = ['']
-    items.each do |item|
-      if column != 0 && column + item_width >= columns
-        lines << ''
-        column = 0
-      end
-      lines.last << item.ljust(item_width)
-      column += item_width
-    end
-    lines
-  end
-
-  def self.wrap_output(text)
-    columns = get_screen_size
-    column = 0
-    lines = ['']
-    text.split.each do |word|
-      if column != 0 && column + word.length >= columns
-        lines << ''
-        column = 0
-      end
-      if column != 0
-        lines.last << ' '
-        column += 1
-      end
-      lines.last << word
-      column += word.length
-    end
-    lines
-  end
 end
