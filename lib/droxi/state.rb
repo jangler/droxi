@@ -22,7 +22,11 @@ class State
     for i in 0..tokens.length
       partial_path = '/' + tokens.take(i).join('/')
       unless have_all_info_for(partial_path)
-        data = @cache[partial_path] = client.metadata(partial_path)
+        begin
+          data = @cache[partial_path] = client.metadata(partial_path)
+        rescue DropboxError
+          return
+        end
         if data.include?('contents')
           data['contents'].each do |datum|  
             @cache[datum['path']] = datum

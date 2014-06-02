@@ -41,27 +41,39 @@ module Droxi
     "droxi #{info['email']}:#{state.pwd}> "
   end
 
-  def self.file_complete(word)
-    path = File.expand_path(word)
-    prefix_length = path.length - word.length
-    if word.end_with?('/') or word.empty?
+  def self.file_complete(word, dir_only=false)
+    begin
+      path = File.expand_path(word)
+    rescue ArgumentError
+      return []
+    end
+    if word.empty? || (word.length > 1 && word.end_with?('/'))
       dir = path
-      prefix_length += 1
     else
       dir = File.dirname(path)
     end
     Dir.entries(dir).map do |file|
-      dir + '/' + file
+      (dir + '/').sub('//', '/') + file
     end.select do |file|
-      file.start_with?(path)
+      file.start_with?(path) && !(dir_only && !File.directory?(file))
     end.map do |file|
       if File.directory?(file)
         file << '/'
       else
         file << ' '
       end
-      file[prefix_length, file.length]
+      if word.start_with?('/')
+        file
+      elsif word.start_with?('~')
+        file.sub(/\/home\/[^\/]+/, '~')
+      else
+        file.sub(Dir.pwd + '/', '')
+      end
     end
+  end
+
+  def self.dir_complete(word)
+    file_complete(word, true)
   end
 
   def self.run
@@ -89,6 +101,8 @@ module Droxi
         end
       when 'LOCAL_FILE'
         file_complete(word)
+      when 'LOCAL_DIR'
+        dir_complete(word)
       when 'REMOTE_FILE'
         begin
           state.file_complete(client, word)
