@@ -5,7 +5,7 @@ task :test do
 end
 
 task :run do
-  sh './rubox'
+  sh './droxi'
 end
 
 task :man do
@@ -17,10 +17,10 @@ task :man do
     end.join.strip
   end
 
-  contents = IO.read('rubox.1.template').
+  contents = IO.read('droxi.1.template').
     sub('{date}', Time.now.strftime('%B %Y')).
     sub('{commands}', commands)
 
   Dir.mkdir('build') unless Dir.exists?('build')
-  IO.write('build/rubox.1', contents)
+  IO.write('build/droxi.1', contents)
 end

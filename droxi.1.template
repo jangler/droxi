@@ -1,8 +1,8 @@
-.TH RUBOX 1 "{date}" "rubox 0.0.0"
+.TH DROXI 1 "{date}" "droxi 0.0.0"
 .SH NAME
-rubox \- ftp-like command-line interface to Dropbox
+droxi \- ftp-like command-line interface to Dropbox
 .SH SYNOPSIS
-rubox
+droxi
 .SH COMMANDS
 {commands}
 .SH AUTHOR

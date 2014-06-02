@@ -1,7 +1,8 @@
-rubox
+droxi
 =====
 
-ftp-like command-line interface to dropbox in ruby
+ftp-like command-line [Dropbox](https://www.dropbox.com/home) interface in
+[Ruby](https://www.ruby-lang.org/en/)
 
 features
 --------

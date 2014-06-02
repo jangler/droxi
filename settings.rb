@@ -1,6 +1,6 @@
 require 'fileutils'
 
-CONFIG_FILE_PATH = File.expand_path('~/.config/rubox/ruboxrc')
+CONFIG_FILE_PATH = File.expand_path('~/.config/droxi/droxirc')
 
 class Settings
   def Settings.[](key)

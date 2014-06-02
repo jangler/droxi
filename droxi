@@ -45,7 +45,7 @@ puts "Logged in as #{info['display_name']} (#{info['email']})"
 state = State.new
 
 def prompt(info, state)
-  "rubox #{info['email']}:#{state.pwd}> "
+  "droxi #{info['email']}:#{state.pwd}> "
 end
 
 def file_complete(word)
