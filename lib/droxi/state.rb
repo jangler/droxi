@@ -31,12 +31,12 @@ class State
 
   # Return a +Hash+ of the Dropbox metadata for a file, or +nil+ if the file
   # does not exist.
-  def metadata(path)
+  def metadata(path, require_contents=true)
     tokens = path.split('/').drop(1)
 
     for i in 0..tokens.length
       partial_path = '/' + tokens.take(i).join('/')
-      unless have_all_info_for(partial_path)
+      unless have_all_info_for(partial_path, require_contents)
         begin
           data = @cache[partial_path] = @client.metadata(partial_path)
         rescue DropboxError
@@ -55,6 +55,7 @@ class State
 
   # Return an +Array+ of paths of files in a Dropbox directory.
   def contents(path)
+    path = resolve_path(path)
     metadata(path)
     path = "#{path}/".sub('//', '/')
     @cache.keys.select do |key|
@@ -64,7 +65,7 @@ class State
 
   # Return +true+ if the Dropbox path is a directory, +false+ otherwise.
   def directory?(path)
-    path = path.sub('//', '/')
+    path = resolve_path(path)
     metadata(File.dirname(path))
     @cache.include?(path) && @cache[path]['is_dir']
   end
@@ -77,11 +78,10 @@ class State
   end
 
   # Expand a Dropbox file path and return the result.
-  def resolve_path(path)
-    path = "#{@pwd}/#{path}" unless path.start_with?('/')
+  def resolve_path(arg)
+    path = arg.start_with?('/') ? arg.dup : "#{@pwd}/#{arg}"
     path.gsub!('//', '/')
-    while path.sub!(/\/([^\/]+?)\/\.\./, '')
-    end
+    nil while path.sub!(/\/([^\/]+?)\/\.\./, '')
     path.chomp!('/')
     path = '/' if path.empty?
     path
@@ -89,8 +89,9 @@ class State
 
   # Expand an +Array+ of file globs into an an +Array+ of Dropbox file paths
   # and return the result.
-  def expand_patterns(patterns)
+  def expand_patterns(patterns, preserve_root=false)
     patterns.map do |pattern|
+      pattern.chomp!('/')
       final_pattern = resolve_path(pattern)
 
       matches = []
@@ -99,11 +100,13 @@ class State
         matches << path if File.fnmatch(final_pattern, path)
       end
 
-      if matches.empty?
-        [final_pattern]
-      else
-        matches
+      if preserve_root
+        matches.map! do |match|
+          pattern.rpartition('/')[0, 2].join + match.rpartition('/')[2]
+        end
       end
+
+      matches.empty? ? [final_pattern] : matches
     end.flatten
   end
 
@@ -123,9 +126,12 @@ class State
 
   private
 
-  def have_all_info_for(path)
-    @cache.include?(path) &&
-    (@cache[path].include?('contents') || !@cache[path]['is_dir'])
+  def have_all_info_for(path, require_contents=true)
+    @cache.include?(path) && (
+      !require_contents ||
+      !@cache[path]['is_dir'] ||
+      @cache[path].include?('contents')
+    )
   end
 
 end

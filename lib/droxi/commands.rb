@@ -46,7 +46,7 @@ module Commands
     # If the index is out of range, return the type of the final argument. If
     # the +Command+ takes no arguments, return +nil+.
     def type_of_arg(index)
-      args = @usage.split.drop(1)
+      args = @usage.split.drop(1).reject { |arg| arg.include?('-') }
       if args.empty?
         nil
       else
@@ -188,41 +188,35 @@ module Commands
 
   # List remote files.
   LS = Command.new(
-    'ls [REMOTE_FILE]...',
+    'ls [-l] [REMOTE_FILE]...',
     "List information about remote files. With no arguments, list the \
      contents of the working directory. When given remote directories as \
      arguments, list the contents of the directories. When given remote files \
-     as arguments, list the files.",
+     as arguments, list the files. If the -l option is given, display \
+     information about the files.",
     lambda do |client, state, args, output|
-      patterns = if args.empty?
-        ["#{state.pwd}/*".sub('//', '/')]
-      else
-        args.map do |path|
-          path = state.resolve_path(path)
-          begin
-            if state.directory?(path)
-              "#{path}/*".sub('//', '/')
-            else
-              path
-            end
-          rescue DropboxError
-            path
-          end
-        end
+      long = args.delete('-l') != nil
+
+      files, dirs = [], []
+      state.expand_patterns(args, true).each do |path|
+        type = state.directory?(path) ? dirs : files
+        type << path
       end
 
-      items = []
-      patterns.each do |pattern|
-        begin
-          dir = File.dirname(pattern)
-          state.contents(dir).each do |path|
-            items << File.basename(path) if File.fnmatch(pattern, path)
-          end
-        rescue DropboxError => error
-          output.call(error.to_s)
-        end
+      dirs << state.pwd if args.empty?
+
+      # First list files
+      list(state, files, files, long) { |line| output.call(line) }
+      output.call('') if !(dirs.empty? || files.empty?)
+
+      # Then list directory contents
+      dirs.each_with_index do |dir, i|
+        output.call(dir + ':') if dirs.length + files.length > 1
+        contents = state.contents(dir)
+        names = contents.map { |path| File.basename(path) }
+        list(state, contents, names, long) { |line| output.call(line) }
+        output.call('') if i < dirs.length - 1
       end
-      Text.table(items).each { |item| output.call(item) }
     end
   )
 
@@ -361,6 +355,26 @@ module Commands
   end
 
   private
+
+  def self.list(state, files, names, long)
+    if long
+      files.each_with_index do |file, i|
+        meta = state.metadata(state.resolve_path(file), false)
+        is_dir = meta['is_dir'] ? 'd' : '-'
+        size = meta['size'].sub(/ (.)B/, '\1').sub(' bytes', '').rjust(6)
+        require 'time'
+        modified = Time.parse(meta['modified'])
+        mtime = if modified.year == Time.now.year
+          modified.strftime('%b %e %H:%M')
+        else
+          modified.strftime('%b %e  %Y')
+        end
+        yield "#{is_dir} #{size} #{mtime} #{names[i]}"
+      end
+    else
+      Text.table(names).each { |line| yield line }
+    end
+  end
 
   def self.shell(cmd)
     begin
