@@ -107,6 +107,20 @@ class State
     end.flatten
   end
 
+  # Recursively remove directory contents from metadata cache. Yield lines of
+  # (error) output if a block is given.
+  def forget_contents(partial_path)
+    path = resolve_path(partial_path)
+    if @cache.include?(path) && @cache[path].include?('contents')
+      @cache[path].delete('contents')
+      @cache.keys.each do |key|
+        @cache.delete(key) if key.start_with?(path) && key != path
+      end
+    elsif block_given?
+      yield "forget: #{partial_path}: Nothing to forget"
+    end
+  end
+
   private
 
   def have_all_info_for(path)

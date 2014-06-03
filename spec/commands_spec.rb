@@ -90,6 +90,28 @@ describe Commands do
     end
   end
 
+  describe 'when executing the forget command' do
+    it 'must clear entire cache when given no arguments' do
+      Commands::LS.exec(client, state, '/')
+      Commands::FORGET.exec(client, state)
+      state.cache.empty?.must_equal true
+    end
+
+    it 'must accept multiple arguments' do
+      lines = []
+      Commands::FORGET.exec(client, state, 'bogus1', 'bogus2') do |line|
+        lines << line
+      end
+      lines.length.must_equal 2
+    end
+
+    it 'must recursively clear contents of directory argument' do
+      Commands::LS.exec(client, state, '/', '/testing')
+      Commands::FORGET.exec(client, state, '/')
+      state.cache.length.must_equal 1
+    end
+  end
+
   describe 'when executing the get command' do
     it 'must get a file of the same name when given args' do
       put_temp_file(client, state)

@@ -48,4 +48,47 @@ describe State do
       state.resolve_path('../..').must_equal '/alpha'
     end
   end
+
+  describe 'when forgetting directory contents' do
+    before do
+      @state = State.new(nil)
+      ['/', '/dir'].each { |dir| @state.cache[dir] = { 'contents' => nil } }
+      2.times { |i| @state.cache["/dir/file#{i}"] = {} }
+    end
+
+    it 'must yield an error for a bogus path' do
+      lines = []
+      @state.forget_contents('bogus') { |line| lines << line }
+      lines.length.must_equal 1
+    end
+
+    it 'must yield an error for a non-directory path' do
+      lines = []
+      @state.forget_contents('/dir/file0') { |line| lines << line }
+      lines.length.must_equal 1
+    end
+
+    it 'must yield an error for an already forgotten path' do
+      lines = []
+      @state.forget_contents('dir')
+      @state.forget_contents('dir') { |line| lines << line }
+      lines.length.must_equal 1
+    end
+
+    it 'must forget contents of given directory' do
+      @state.forget_contents('dir')
+      @state.cache['/dir'].include?('contents').must_equal false
+      @state.cache.keys.any? do |key|
+        key.start_with?('/dir/')
+      end.must_equal false
+    end
+
+    it 'must forget contents of subdirectories' do
+      @state.forget_contents('/')
+      @state.cache['/'].include?('contents').must_equal false
+      @state.cache.keys.any? do |key|
+        key.length > 1
+      end.must_equal false
+    end
+  end
 end

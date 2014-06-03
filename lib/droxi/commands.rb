@@ -103,6 +103,23 @@ module Commands
     end
   )
 
+  # Clear the cache.
+  FORGET = Command.new(
+    'forget [REMOTE_DIR]...',
+    "Clear the client-side cache of remote filesystem metadata. With no \
+     arguments, clear the entire cache. If given directories as arguments, \
+     (recursively) clear the cache of those directories only.",
+    lambda do |client, state, args, output|
+      if args.empty?
+        state.cache.clear
+      else
+        args.each do |arg|
+          state.forget_contents(arg) { |line| output.call(line) }
+        end
+      end
+    end
+  )
+
   # Download remote files.
   GET = Command.new(
     'get REMOTE_FILE...',
