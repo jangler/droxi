@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'droxi'
-  s.version     = '0.0.2'
+  s.version     = '0.0.3'
   s.date        = '2014-06-02'
   s.summary     = 'ftp-like command-line interface to Dropbox'
   s.description = "A command-line Dropbox interface inspired by GNU \
