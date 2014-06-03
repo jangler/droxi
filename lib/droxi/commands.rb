@@ -127,14 +127,18 @@ module Commands
      local working directory.",
     lambda do |client, state, args, output|
       state.expand_patterns(args).each do |path|
-        begin
-          contents = client.get_file(path)
-          File.open(File.basename(path), 'wb') do |file|
-            file.write(contents)
+        if path.is_a?(GlobError)
+          output.call("get: #{path}: No such file or directory")
+        else
+          begin
+            contents = client.get_file(path)
+            File.open(File.basename(path), 'wb') do |file|
+              file.write(contents)
+            end
+            output.call("#{File.basename(path)} <- #{path}")
+          rescue DropboxError => error
+            output.call(error.to_s)
           end
-          output.call("#{File.basename(path)} <- #{path}")
-        rescue DropboxError => error
-          output.call(error.to_s)
         end
       end
     end
@@ -199,8 +203,12 @@ module Commands
 
       files, dirs = [], []
       state.expand_patterns(args, true).each do |path|
-        type = state.directory?(path) ? dirs : files
-        type << path
+        if path.is_a?(GlobError)
+          output.call("ls: #{path}: No such file or directory")
+        else
+          type = state.directory?(path) ? dirs : files
+          type << path
+        end
       end
 
       dirs << state.pwd if args.empty?
@@ -227,11 +235,15 @@ module Commands
      time-limited and link directly to the files themselves.",
     lambda do |client, state, args, output|
       state.expand_patterns(args).each do |path|
-        begin
-          url = client.media(path)['url']
-          output.call("#{File.basename(path)} -> #{url}")
-        rescue DropboxError => error
-          output.call(error.to_s)
+        if path.is_a?(GlobError)
+          output.call("media: #{path}: No such file or directory")
+        else
+          begin
+            url = client.media(path)['url']
+            output.call("#{File.basename(path)} -> #{url}")
+          rescue DropboxError => error
+            output.call(error.to_s)
+          end
         end
       end
     end
@@ -287,11 +299,15 @@ module Commands
     "Remove each specified remote file or directory.",
     lambda do |client, state, args, output|
       state.expand_patterns(args).each do |path|
-        begin
-          client.file_delete(path)
-          state.cache.delete(path)
-        rescue DropboxError => error
-          output.call(error.to_s)
+        if path.is_a?(GlobError)
+          output.call("rm: #{path}: No such file or directory")
+        else
+          begin
+            client.file_delete(path)
+            state.cache.delete(path)
+          rescue DropboxError => error
+            output.call(error.to_s)
+          end
         end
       end
     end
@@ -306,11 +322,15 @@ module Commands
      expiration is effectively not an issue.",
     lambda do |client, state, args, output|
       state.expand_patterns(args).each do |path|
-        begin
-          url = client.shares(path)['url']
-          output.call("#{File.basename(path)} -> #{url}")
-        rescue DropboxError => error
-          output.call(error.to_s)
+        if path.is_a?(GlobError)
+          output.call("share: #{path}: No such file or directory")
+        else
+          begin
+            url = client.shares(path)['url']
+            output.call("#{File.basename(path)} -> #{url}")
+          rescue DropboxError => error
+            output.call(error.to_s)
+          end
         end
       end
     end

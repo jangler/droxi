@@ -1,5 +1,9 @@
 require_relative 'settings'
 
+# Represents a failure of a glob expression to match files.
+class GlobError < ArgumentError
+end
+
 # Encapsulates the session state of the client.
 class State
 
@@ -95,7 +99,7 @@ class State
       final_pattern = resolve_path(pattern)
 
       matches = []
-      @client.metadata(File.dirname(final_pattern))['contents'].each do |data|
+      metadata(File.dirname(final_pattern))['contents'].each do |data|
         path = data['path']
         matches << path if File.fnmatch(final_pattern, path)
       end
@@ -106,7 +110,7 @@ class State
         end
       end
 
-      matches.empty? ? [final_pattern] : matches
+      matches.empty? ? GlobError.new(pattern) : matches
     end.flatten
   end
 
