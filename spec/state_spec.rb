@@ -43,6 +43,11 @@ describe State do
       state.resolve_path('beta').must_equal '/alpha/beta'
     end
 
+    it 'must resolve . to current directory' do
+      state.pwd = '/alpha'
+      state.resolve_path('.').must_equal '/alpha'
+    end
+
     it 'must resolve .. to upper directory' do
       state.pwd = '/alpha/beta/gamma'
       state.resolve_path('../..').must_equal '/alpha'

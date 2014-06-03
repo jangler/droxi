@@ -86,6 +86,8 @@ class State
     path = arg.start_with?('/') ? arg.dup : "#{@pwd}/#{arg}"
     path.gsub!('//', '/')
     nil while path.sub!(/\/([^\/]+?)\/\.\./, '')
+    nil while path.sub!('./', '')
+    path.sub!(/\/\.$/, '')
     path.chomp!('/')
     path = '/' if path.empty?
     path
@@ -95,22 +97,35 @@ class State
   # and return the result.
   def expand_patterns(patterns, preserve_root=false)
     patterns.map do |pattern|
-      pattern.chomp!('/')
-      final_pattern = resolve_path(pattern)
-
-      matches = []
-      metadata(File.dirname(final_pattern))['contents'].each do |data|
-        path = data['path']
-        matches << path if File.fnmatch(final_pattern, path)
+      final_pattern = if pattern.length > 1 and !pattern.end_with?('./')
+        pattern.chomp('/')
+      else
+        pattern
       end
+      final_pattern = resolve_path(final_pattern)
 
-      if preserve_root
-        matches.map! do |match|
-          pattern.rpartition('/')[0, 2].join + match.rpartition('/')[2]
+      if pattern.end_with?('/') || pattern.end_with?('.')
+        metadata(final_pattern) ? pattern : GlobError.new(pattern)
+      else
+        matches = []
+        metadata(File.dirname(final_pattern))['contents'].each do |data|
+          path = data['path']
+          matches << path if File.fnmatch(final_pattern, path)
         end
-      end
+        matches << '/' if final_pattern == '/'
 
-      matches.empty? ? GlobError.new(pattern) : matches
+        if preserve_root
+          matches.map! do |match|
+            if pattern.include?('/')
+              pattern.rpartition('/')[0, 2].join + match.rpartition('/')[2]
+            else
+              pattern + '/' + match.rpartition('/')[2]
+            end
+          end
+        end
+
+        matches.empty? ? GlobError.new(pattern) : matches
+      end
     end.flatten
   end
 
