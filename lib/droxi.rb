@@ -95,7 +95,11 @@ module Droxi
     begin
       while !state.exit_requested &&
             line = Readline.readline(prompt(info, state), true)
-        Commands.exec(line.chomp, client, state)
+        begin
+          Commands.exec(line.chomp, client, state)
+        rescue Interrupt
+          puts
+        end
       end
       puts if !line
     rescue Interrupt

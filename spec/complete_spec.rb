@@ -8,12 +8,8 @@ require_relative '../lib/droxi/state'
 describe Complete do
   CHARACTERS = ('a'..'z').to_a + ('A'..'Z').to_a + ('0'..'9').to_a
 
-  def random_character
-    CHARACTERS[rand(CHARACTERS.length)]
-  end
-
   def random_string(length)
-    rand(length).times.map { random_character }.join
+    rand(length).times.map { CHARACTERS.sample }.join
   end
 
   describe "when resolving a local search path" do

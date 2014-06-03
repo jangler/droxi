@@ -1,3 +1,5 @@
+require 'time'
+
 require_relative 'text'
 
 # Module containing definitions for client commands.
@@ -38,7 +40,7 @@ module Commands
         block = proc { |line| yield line if block_given? }
         @procedure.yield(client, state, args, block)
       else
-        raise UsageError.new(@usage)
+        fail UsageError, @usage
       end
     end
 
@@ -346,65 +348,61 @@ module Commands
     if input.start_with?('!')
       shell(input[1, input.length - 1]) { |line| puts line }
     elsif not input.empty?
-      tokens = input.split
-
-      # Escape spaces with backslash
-      i = 0
-      while i < tokens.length - 1
-        if tokens[i].end_with?('\\')
-          tokens[i] = "#{tokens[i].chop} #{tokens.delete_at(i + 1)}"
-        else
-          i += 1
-        end
-      end
-
+      tokens = tokenize(input)
       cmd, args = tokens[0], tokens.drop(1)
-
-      if NAMES.include?(cmd)
-        begin
-          const_get(cmd.upcase.to_sym).exec(client, state, *args) do |line|
-            puts line
-          end
-        rescue UsageError => error
-          puts "Usage: #{error}"
-        end
-      else
-        puts "Unrecognized command: #{cmd}"
-      end
+      try_command(cmd, args, client, state)
     end
   end
 
   private
 
-  def self.list(state, files, names, long)
-    if long
-      files.each_with_index do |file, i|
-        meta = state.metadata(state.resolve_path(file), false)
-        is_dir = meta['is_dir'] ? 'd' : '-'
-        size = meta['size'].sub(/ (.)B/, '\1').sub(' bytes', '').rjust(6)
-        require 'time'
-        modified = Time.parse(meta['modified'])
-        mtime = if modified.year == Time.now.year
-          modified.strftime('%b %e %H:%M')
-        else
-          modified.strftime('%b %e  %Y')
-        end
-        yield "#{is_dir} #{size} #{mtime} #{names[i]}"
+  def self.try_command(command_name, args, client, state)
+    if NAMES.include?(command_name)
+      begin
+        command = const_get(command_name.upcase.to_sym)
+        command.exec(client, state, *args) { |line| puts line }
+      rescue UsageError => error
+        puts "Usage: #{error}"
       end
+    else
+      puts "droxi: #{command_name}: command not found"
+    end
+  end
+
+  def self.tokenize(string)
+    string.split.reduce([]) do |list, token|
+      list << if !list.empty? && list.last.end_with?('\\')
+        "#{list.pop.chop} #{token}"
+      else
+        token
+      end
+    end
+  end
+
+  def self.long_info(state, path, name)
+    meta = state.metadata(state.resolve_path(path), false)
+    is_dir = meta['is_dir'] ? 'd' : '-'
+    size = meta['size'].sub(/ (.)B/, '\1').sub(' bytes', '').rjust(7)
+    mtime = Time.parse(meta['modified'])
+    format_str = (mtime.year == Time.now.year) ? '%b %e %H:%M' : '%b %e  %Y'
+    "#{is_dir} #{size} #{mtime.strftime(format_str)} #{name}"
+  end
+
+  def self.list(state, paths, names, long)
+    if long
+      paths.zip(names).each { |path, name| yield long_info(state, path, name) }
     else
       Text.table(names).each { |line| yield line }
     end
   end
 
   def self.shell(cmd)
-    begin
-      IO.popen(cmd) do |pipe|
-        pipe.each_line { |line| yield line.chomp if block_given? }
-      end
-    rescue Interrupt
-    rescue Exception => error
-      yield error.to_s if block_given?
+    IO.popen(cmd) do |pipe|
+      pipe.each_line { |line| yield line.chomp if block_given? }
     end
+  rescue Interrupt
+  rescue Exception => error
+    yield error.to_s if block_given?
   end
 
 end
