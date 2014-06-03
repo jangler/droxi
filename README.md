@@ -1,13 +1,24 @@
 droxi
 =====
 
-ftp-like command-line [Dropbox](https://www.dropbox.com/home) interface in
+ftp-like command-line [Dropbox](https://www.dropbox.com/) interface in
 [Ruby](https://www.ruby-lang.org/en/)
 
 installation
 ------------
 
     gem install droxi
+
+or
+
+    git clone https://github.com/jangler/droxi.git
+    cd droxi && rake && sudo rake install
+
+or
+
+    wget https://aur.archlinux.org/packages/dr/droxi/droxi.tar.gz
+    tar -xzf droxi.tar.gz
+    cd droxi && makepkg -s && sudo pacman -U droxi-*.pkg.tar.xz
 
 features
 --------
