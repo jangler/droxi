@@ -59,12 +59,14 @@ module Commands
 
     private
 
+    # Return +true+ if the given number of arguments is acceptable for the
+    # command, +false+ otherwise.
     def num_args_ok?(num_args)
       args = @usage.split.drop(1)
       min_args = args.reject { |arg| arg.start_with?('[') }.length
       if args.empty?
         max_args = 0
-      elsif args.last.end_with?('...')
+      elsif args.any? { |arg| arg.end_with?('...') }
         max_args = num_args
       else
         max_args = args.length
@@ -92,6 +94,55 @@ module Commands
         else
           output.call('Not a directory')
         end
+      end
+    end
+  )
+
+  # Copy remote files.
+  CP = Command.new(
+    'cp REMOTE_FILE... REMOTE_FILE',
+    "When given two arguments, copies the remote file or folder at the first \
+     path to the second path. When given more than two arguments or when the \
+     final argument is a directory, copies each remote file or folder into \
+     that directory.",
+    lambda do |client, state, args, output|
+      from_paths = state.expand_patterns(args.take(args.length - 1), true).
+        map do |item|
+          if item.is_a?(GlobError)
+            output.call("cp: #{item}: no such file or directory")
+            nil
+          else
+            item
+          end
+        end.compact
+      to_path = state.resolve_path(args.last)
+
+      if from_paths.length == 1 && !state.directory?(to_path)
+
+        try_and_handle(DropboxError, output) do
+          from_path = state.resolve_path(from_paths[0])
+          metadata = client.file_copy(from_path, to_path)
+          state.cache_add(metadata)
+          output.call("#{from_paths[0]} -> #{args.last}")
+        end
+
+      else
+
+        if state.metadata(to_path)
+          from_paths.each do |from_path|
+            source = state.resolve_path(from_path)
+            dest = to_path + '/' + File.basename(from_path)
+            try_and_handle(DropboxError, output) do
+              metadata = client.file_copy(source, dest)
+              state.cache_add(metadata)
+              to = args.last.chomp('/') + '/' + File.basename(from_path)
+              output.call("#{from_path} -> #{to}")
+            end
+          end
+        else
+          output.call("cp: #{args.last}: no such directory")
+        end
+
       end
     end
   )

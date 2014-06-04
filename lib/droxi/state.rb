@@ -33,6 +33,14 @@ class State
     @local_oldpwd = Dir.pwd
   end
 
+  # Adds a metadata +Hash+ and its contents to the metadata cache.
+  def cache_add(metadata)
+    @cache[metadata['path']] = metadata
+    if metadata.include?('contents')
+      metadata['contents'].each { |content| cache_add(content) }
+    end
+  end
+
   # Return a +Hash+ of the Dropbox metadata for a file, or +nil+ if the file
   # does not exist.
   def metadata(path, require_contents=true)
