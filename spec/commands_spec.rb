@@ -90,6 +90,38 @@ describe Commands do
     end
   end
 
+  describe 'when executing the cp command' do
+    before do
+      state.pwd = '/testing'
+    end
+
+    after do
+      Commands::RM.exec(client, state, '*')
+    end
+
+    it 'must copy source to dest when given 2 args and last arg is non-dir' do
+      Commands::MKDIR.exec(client, state, 'source')
+      Commands::CP.exec(client, state, 'source', 'dest')
+      ['source', 'dest'].all? do |dir|
+        client.metadata("/testing/#{dir}")
+      end.must_equal true
+    end
+
+    it 'must copy source into dest when given 2 args and last arg is dir' do
+      Commands::MKDIR.exec(client, state, 'source', 'dest')
+      Commands::CP.exec(client, state, 'source', 'dest')
+      client.metadata('/testing/dest/source').wont_equal nil
+    end
+
+    it 'must copy sources into dest when given 3 or more args' do
+      Commands::MKDIR.exec(client, state, 'source1', 'source2', 'dest')
+      Commands::CP.exec(client, state, 'source1', 'source2', 'dest')
+      ['source2', 'source2'].all? do |dir|
+        client.metadata("/testing/dest/#{dir}")
+      end.must_equal true
+    end
+  end
+
   describe 'when executing the forget command' do
     it 'must clear entire cache when given no arguments' do
       Commands::LS.exec(client, state, '/')

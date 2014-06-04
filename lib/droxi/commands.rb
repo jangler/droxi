@@ -106,43 +106,20 @@ module Commands
      final argument is a directory, copies each remote file or folder into \
      that directory.",
     lambda do |client, state, args, output|
-      from_paths = state.expand_patterns(args.take(args.length - 1), true).
-        map do |item|
-          if item.is_a?(GlobError)
-            output.call("cp: #{item}: no such file or directory")
-            nil
-          else
-            item
-          end
-        end.compact
-      to_path = state.resolve_path(args.last)
+      sources = expand(state, args.take(args.length - 1), true, output)
+      dest = state.resolve_path(args.last)
 
-      if from_paths.length == 1 && !state.directory?(to_path)
-
-        try_and_handle(DropboxError, output) do
-          from_path = state.resolve_path(from_paths[0])
-          metadata = client.file_copy(from_path, to_path)
-          state.cache_add(metadata)
-          output.call("#{from_paths[0]} -> #{args.last}")
-        end
-
+      if sources.length == 1 && !state.directory?(dest)
+        copy(sources[0], args.last, client, state, output)
       else
-
-        if state.metadata(to_path)
-          from_paths.each do |from_path|
-            source = state.resolve_path(from_path)
-            dest = to_path + '/' + File.basename(from_path)
-            try_and_handle(DropboxError, output) do
-              metadata = client.file_copy(source, dest)
-              state.cache_add(metadata)
-              to = args.last.chomp('/') + '/' + File.basename(from_path)
-              output.call("#{from_path} -> #{to}")
-            end
+        if state.metadata(dest)
+          sources.each do |source|
+            to_path = args.last.chomp('/') + '/' + File.basename(source)
+            copy(source, to_path, client, state, output)
           end
         else
           output.call("cp: #{args.last}: no such directory")
         end
-
       end
     end
   )
@@ -458,6 +435,30 @@ module Commands
   rescue Interrupt
   rescue Exception => error
     yield error.to_s if block_given?
+  end
+
+  # Return an +Array+ of paths from an +Array+ of globs, passing error messages
+  # to the output +Proc+ for non-matches.
+  def self.expand(state, paths, preserve_root, output)
+    state.expand_patterns(paths, true).map do |item|
+      if item.is_a?(GlobError)
+        output.call("cp: #{item}: no such file or directory")
+        nil
+      else
+        item
+      end
+    end.compact
+  end
+
+  # Copies the file at +source+ to +dest+ and passes a description of the
+  # operation to the output +Proc+.
+  def self.copy(source, dest, client, state, output)
+    from_path, to_path = [source, dest].map { |p| state.resolve_path(p) }
+    try_and_handle(DropboxError, output) do
+      metadata = client.file_copy(from_path, to_path)
+      state.cache_add(metadata)
+      output.call("#{source} -> #{dest}")
+    end
   end
 
 end
