@@ -97,34 +97,11 @@ class State
   # and return the result.
   def expand_patterns(patterns, preserve_root=false)
     patterns.map do |pattern|
-      final_pattern = if pattern.length > 1 and !pattern.end_with?('./')
-        pattern.chomp('/')
+      path = resolve_path(pattern)
+      if directory?(path)
+        preserve_root ? pattern : path
       else
-        pattern
-      end
-      final_pattern = resolve_path(final_pattern)
-
-      if pattern.end_with?('/') || pattern.end_with?('.')
-        metadata(final_pattern) ? pattern : GlobError.new(pattern)
-      else
-        matches = []
-        metadata(File.dirname(final_pattern))['contents'].each do |data|
-          path = data['path']
-          matches << path if File.fnmatch(final_pattern, path)
-        end
-        matches << '/' if final_pattern == '/'
-
-        if preserve_root
-          matches.map! do |match|
-            if pattern.include?('/')
-              pattern.rpartition('/')[0, 2].join + match.rpartition('/')[2]
-            else
-              pattern + '/' + match.rpartition('/')[2]
-            end
-          end
-        end
-
-        matches.empty? ? GlobError.new(pattern) : matches
+        get_matches(pattern, path, preserve_root)
       end
     end.flatten
   end
@@ -144,6 +121,19 @@ class State
   end
 
   private
+
+  def get_matches(pattern, path, preserve_root)
+    dir = File.dirname(path)
+    matches = contents(dir).select { |entry| File.fnmatch(path, entry) }
+    if matches.empty?
+      GlobError.new(pattern)
+    elsif preserve_root
+      prefix = pattern.rpartition('/')[0, 2].join 
+      matches.map { |match| prefix + match.rpartition('/')[2] }
+    else
+      matches
+    end
+  end
 
   def have_all_info_for(path, require_contents=true)
     @cache.include?(path) && (
