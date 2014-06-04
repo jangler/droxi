@@ -70,7 +70,7 @@ class Settings
 
   # Read and parse the rc file.
   def Settings.read
-    if File.exists?(CONFIG_FILE_PATH)
+    if File.exist?(CONFIG_FILE_PATH)
       File.open(CONFIG_FILE_PATH) do |file|
         file.each_line.reduce({}) { |a, e| a.merge(parse(e.strip)) }
       end

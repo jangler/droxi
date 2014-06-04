@@ -195,7 +195,7 @@ module Commands
         File.expand_path(args[0])
       end
 
-      if Dir.exists?(path)
+      if Dir.exist?(path)
         state.local_oldpwd = Dir.pwd
         Dir.chdir(path)
       else

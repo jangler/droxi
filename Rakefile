@@ -5,10 +5,14 @@ task :test do
   sh 'ruby spec/all.rb'
 end
 
+desc 'run unit tests in verbose mode'
+task :verbose_test do
+  sh 'ruby -w spec/all.rb'
+end
+
 desc 'run program'
 task :run do
-  require_relative 'lib/droxi'
-  Droxi.run
+  sh 'ruby bin/droxi'
 end
 
 desc 'install gem'
