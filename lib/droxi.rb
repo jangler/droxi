@@ -9,7 +9,27 @@ require_relative 'droxi/state'
 # Command-line Dropbox client module.
 module Droxi
 
-  # Attempt to authorize the user for app usage.
+  # Run the client.
+  def self.run(*args)
+    client = DropboxClient.new(get_access_token)
+    state = State.new(client)
+
+    if args.empty?
+      run_interactive(client, state)
+    else
+      with_interrupt_handling do
+        cmd = args.map { |arg| arg.gsub(' ', '\ ') }.join(' ')
+        Commands.exec(cmd, client, state)
+      end
+    end
+
+    Settings.save
+  end
+
+  private
+
+  # Attempt to authorize the user for app usage. Return +true+ if
+  # authorization was successful, +false+ otherwise.
   def self.authorize
     app_key = '5sufyfrvtro9zp7'
     app_secret = 'h99ihzv86jyypho'
@@ -17,41 +37,23 @@ module Droxi
     flow = DropboxOAuth2FlowNoRedirect.new(app_key, app_secret)
 
     authorize_url = flow.start()
+    code = get_auth_code(authorize_url)
 
-    # Have the user sign in and authorize this app
-    puts '1. Go to: ' + authorize_url
-    puts '2. Click "Allow" (you might have to log in first)'
-    puts '3. Copy the authorization code'
-    print 'Enter the authorization code here: '
-    code = $stdin.gets
-    if code
-      code.strip!
-    else
-      puts
-      exit
-    end
-
-    # This will fail if the user gave us an invalid authorization code
     begin
-      access_token, user_id = flow.finish(code)
-      Settings[:access_token] = access_token
+      Settings[:access_token] = flow.finish(code)[0]
     rescue DropboxError
       puts 'Invalid authorization code.'
     end
-
-    nil
   end
 
   # Get the access token for the user, requesting authorization if no token
   # exists.
   def self.get_access_token
-    until Settings.include?(:access_token)
-      authorize()
-    end
+    authorize() until Settings.include?(:access_token)
     Settings[:access_token]
   end
 
-  # Print a prompt message reflecting the current state of the application.
+  # Return a prompt message reflecting the current state of the application.
   def self.prompt(info, state)
     "droxi #{info['email']}:#{state.pwd}> "
   end
@@ -61,6 +63,14 @@ module Droxi
     info = client.account_info
     puts "Logged in as #{info['display_name']} (#{info['email']})"
 
+    init_readline(state)
+    with_interrupt_handling { do_interaction_loop(client, state, info) }
+
+    # Set pwd so that the oldpwd setting is saved to pwd
+    state.pwd = '/'
+  end
+
+  def self.init_readline(state)
     Readline.completion_proc = proc do |word|
       words = Readline.line_buffer.split
       index = words.length
@@ -91,41 +101,29 @@ module Droxi
       Readline.completion_append_character = nil
     rescue NotImplementedError
     end
-
-    begin
-      while !state.exit_requested &&
-            line = Readline.readline(prompt(info, state), true)
-        begin
-          Commands.exec(line.chomp, client, state)
-        rescue Interrupt
-          puts
-        end
-      end
-      puts if !line
-    rescue Interrupt
-      puts
-    end
-
-    # Set pwd so that the oldpwd setting is set to pwd
-    state.pwd = '/'
-    Settings.save
   end
 
-  # Run the client.
-  def self.run(*args)
-    client = DropboxClient.new(get_access_token)
-    state = State.new(client)
+  def self.with_interrupt_handling
+    yield
+  rescue Interrupt
+    puts
+  end
 
-    if args.empty?
-      run_interactive(client, state)
-    else
-      cmd = args.map { |arg| arg.gsub(' ', '\ ') }.join(' ')
-      begin
-        Commands.exec(cmd, client, state)
-      rescue Interrupt
-        puts
-      end
+  def self.do_interaction_loop(client, state, info)
+    while !state.exit_requested &&
+          line = Readline.readline(prompt(info, state), true)
+      with_interrupt_handling { Commands.exec(line.chomp, client, state) }
     end
+    puts if !line
+  end
+
+  def self.get_auth_code(url)
+    puts '1. Go to: ' + url
+    puts '2. Click "Allow" (you might have to log in first)'
+    puts '3. Copy the authorization code'
+    print '4. Enter the authorization code here: '
+    code = $stdin.gets
+    code ? code.strip! : exit
   end
 
 end

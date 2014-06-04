@@ -173,6 +173,18 @@ describe Commands do
       lines.must_equal(['test  '])
       Commands::RM.exec(client, state, '/testing/test')
     end
+
+    it 'must give a longer description with the -l option' do
+      state.pwd = '/'
+      Commands::MKDIR.exec(client, state, '/testing/test')
+      lines = []
+      Commands::LS.exec(client, state, '-l', '/testing') do |line|
+        lines << line
+      end
+      lines.length.must_equal 1
+      /d +0 \w{3} .\d \d\d:\d\d test/.match(lines[0]).wont_equal nil
+      Commands::RM.exec(client, state, '/testing/test')
+    end
   end
 
   describe 'when executing the media command' do
