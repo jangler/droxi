@@ -142,7 +142,7 @@ module Commands
     lambda do |client, state, args, output|
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
-          output.call("get: #{path}: No such file or directory")
+          output.call("get: #{path}: no such file or directory")
         else
           try_and_handle(DropboxError, output) do
             contents = client.get_file(path)
@@ -190,14 +190,18 @@ module Commands
              elsif args[0] == '-'
                state.local_oldpwd
              else
-               File.expand_path(args[0])
+               begin
+                 File.expand_path(args[0])
+               rescue ArgumentError
+                 args[0]
+               end
              end
 
       if Dir.exist?(path)
         state.local_oldpwd = Dir.pwd
         Dir.chdir(path)
       else
-        output.call("lcd: #{args[0]}: No such file or directory")
+        output.call("lcd: #{args[0]}: no such file or directory")
       end
     end
   )
@@ -216,7 +220,7 @@ module Commands
       files, dirs = [], []
       state.expand_patterns(args, true).each do |path|
         if path.is_a?(GlobError)
-          output.call("ls: #{path}: No such file or directory")
+          output.call("ls: #{path}: no such file or directory")
         else
           type = state.directory?(path) ? dirs : files
           type << path
@@ -248,7 +252,7 @@ module Commands
     lambda do |client, state, args, output|
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
-          output.call("media: #{path}: No such file or directory")
+          output.call("media: #{path}: no such file or directory")
         else
           try_and_handle(DropboxError, output) do
             url = client.media(path)['url']
@@ -318,7 +322,7 @@ module Commands
     lambda do |client, state, args, output|
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
-          output.call("rm: #{path}: No such file or directory")
+          output.call("rm: #{path}: no such file or directory")
         else
           try_and_handle(DropboxError, output) do
             client.file_delete(path)
@@ -340,7 +344,7 @@ module Commands
     lambda do |client, state, args, output|
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
-          output.call("share: #{path}: No such file or directory")
+          output.call("share: #{path}: no such file or directory")
         else
           try_and_handle(DropboxError, output) do
             url = client.shares(path)['url']

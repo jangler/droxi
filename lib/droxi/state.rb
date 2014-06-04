@@ -148,9 +148,9 @@ class State
   # successful, +false+ otherwise.
   def fetch_metadata(path)
     data = @client.metadata(path)
-    return if data['is_deleted']
+    return true if data['is_deleted']
     @cache[path] = data
-    return unless data.include?('contents')
+    return true unless data.include?('contents')
     data['contents'].each do |datum|
       @cache[datum['path']] = datum
     end

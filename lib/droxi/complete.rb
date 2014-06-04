@@ -11,7 +11,7 @@ module Complete
   # for a +String+. Defaults to working directory in case of bogus input.
   def self.local_search_path(string)
     File.expand_path(strip_filename(string))
-  rescue
+  rescue ArgumentError
     Dir.pwd
   end
 

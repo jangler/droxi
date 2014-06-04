@@ -1,6 +1,7 @@
 require 'dropbox_sdk'
 require 'minitest/autorun'
 
+require_relative '../lib/droxi/commands'
 require_relative '../lib/droxi/complete'
 require_relative '../lib/droxi/settings'
 require_relative '../lib/droxi/state'
@@ -43,8 +44,8 @@ describe Complete do
       Complete.local_search_path('../f').must_equal File.dirname(Dir.pwd)
     end
 
-    it "won't raise an exception on a bogus string" do
-      Complete.local_search_path('~bogus')
+    it 'must resolve a bogus string to working directory' do
+      Complete.local_search_path('~bogus/bogus').must_equal Dir.pwd
     end
   end
 
@@ -89,6 +90,20 @@ describe Complete do
     end
   end
 
+  describe 'when finding local directory tab completions' do
+    it 'must include all directories and only directories' do
+      entries = Dir.entries(Dir.pwd).select do |entry|
+        File.directory?(entry) && !/^..?$/.match(entry)
+      end
+      matches = Complete.local_dir('').map { |match| match.chomp('/') }
+      matches.sort.must_equal entries.sort
+    end
+
+    it 'must append a / to the end of options' do
+      Complete.local_dir('').all? { |option| option.end_with?('/') }
+    end
+  end
+
   describe 'when resolving a remote search path' do
     client = DropboxClient.new(Settings[:access_token])
     begin
@@ -123,6 +138,41 @@ describe Complete do
       parent = File.dirname(state.pwd)
       Complete.remote_search_path('../', state).must_equal parent
       Complete.remote_search_path('../f', state).must_equal parent
+    end
+  end
+
+  describe 'when finding remote tab completions' do
+    client = DropboxClient.new(Settings[:access_token])
+    state = State.new(client)
+    state.pwd = '/testing'
+    Commands::RM.exec(client, state, '/testing/*')
+    %w(/testing /testing/one /testing/two).each do |dir|
+      Commands::MKDIR.exec(client, state, dir) unless state.metadata(dir)
+    end
+    `echo hello > test.txt`
+    Commands::PUT.exec(client, state, 'test.txt')
+    `rm test.txt`
+
+    it 'must return only matches of which the string is a prefix' do
+      Complete.remote('t', state).must_equal ['two/', 'test.txt ']
+    end
+
+    it 'must return only directories if requested' do
+      Complete.remote_dir('', state).must_equal %w(one/ two/)
+    end
+  end
+
+  describe 'when resolving command names' do
+    before do
+      @words = %w(plank plague plonk lake lag lock)
+    end
+
+    it 'must return matches if and only if the string is a prefix' do
+      Complete.command('pla', @words).length.must_equal 2
+    end
+
+    it 'must return matches that end with a space' do
+      Complete.command('plank', @words).must_equal ['plank ']
     end
   end
 end

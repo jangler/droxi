@@ -1,5 +1,12 @@
 # Manages persistent (session-independent) application state.
 module Settings
+  class << self
+    # The path of the application's rc file.
+    attr_accessor :config_file_path
+  end
+
+  self.config_file_path = File.expand_path('~/.config/droxi/droxirc')
+
   # Return the value of a setting, or +nil+ if the setting does not exist.
   def self.[](key)
     settings[key]
@@ -31,8 +38,8 @@ module Settings
     if dirty
       self.dirty = false
       require 'fileutils'
-      FileUtils.mkdir_p(File.dirname(CONFIG_FILE_PATH))
-      File.open(CONFIG_FILE_PATH, 'w') do |file|
+      FileUtils.mkdir_p(File.dirname(config_file_path))
+      File.open(config_file_path, 'w') do |file|
         settings.each_pair { |k, v| file.write("#{k}=#{v}\n") }
         file.chmod(0600)
       end
@@ -40,10 +47,19 @@ module Settings
     nil
   end
 
-  private
+  # Read and parse the rc file.
+  def self.read
+    self.dirty = false
+    if File.exist?(config_file_path)
+      File.open(config_file_path) do |file|
+        file.each_line.reduce({}) { |a, e| a.merge(parse(e.strip)) }
+      end
+    else
+      {}
+    end
+  end
 
-  # The path of the application's rc file.
-  CONFIG_FILE_PATH = File.expand_path('~/.config/droxi/droxirc')
+  private
 
   class << self
     # +true+ if the settings have been modified since last write, +false+
@@ -76,17 +92,5 @@ module Settings
     end
   end
 
-  # Read and parse the rc file.
-  def self.read
-    if File.exist?(CONFIG_FILE_PATH)
-      File.open(CONFIG_FILE_PATH) do |file|
-        file.each_line.reduce({}) { |a, e| a.merge(parse(e.strip)) }
-      end
-    else
-      {}
-    end
-  end
-
   self.settings = read
-  self.dirty = false
 end
