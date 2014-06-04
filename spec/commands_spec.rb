@@ -6,18 +6,15 @@ require_relative '../lib/droxi/settings'
 require_relative '../lib/droxi/state'
 
 def ignore(error_class)
-  begin
-    yield
-  rescue error_class
-  end
+  yield
+rescue error_class
+  nil
 end
 
 def put_temp_file(client, state)
   `echo hello > #{TEMP_FILENAME}`
-  open(TEMP_FILENAME, 'rb') do |file|
-    Commands::PUT.exec(client, state, TEMP_FILENAME,
-                       "/#{TEST_FOLDER}/#{TEMP_FILENAME}")
-  end
+  Commands::PUT.exec(client, state, TEMP_FILENAME,
+                     "/#{TEST_FOLDER}/#{TEMP_FILENAME}")
   `rm #{TEMP_FILENAME}`
 end
 
@@ -102,7 +99,7 @@ describe Commands do
     it 'must copy source to dest when given 2 args and last arg is non-dir' do
       Commands::MKDIR.exec(client, state, 'source')
       Commands::CP.exec(client, state, 'source', 'dest')
-      ['source', 'dest'].all? do |dir|
+      %w(source dest).all? do |dir|
         client.metadata("/testing/#{dir}")
       end.must_equal true
     end
@@ -116,7 +113,7 @@ describe Commands do
     it 'must copy sources into dest when given 3 or more args' do
       Commands::MKDIR.exec(client, state, 'source1', 'source2', 'dest')
       Commands::CP.exec(client, state, 'source1', 'source2', 'dest')
-      ['source2', 'source2'].all? do |dir|
+      %w(source2 source2).all? do |dir|
         client.metadata("/testing/dest/#{dir}")
       end.must_equal true
     end
@@ -226,7 +223,7 @@ describe Commands do
       lines = get_output(:MEDIA, client, state, to_path)
       delete_temp_file(client, state)
       lines.length.must_equal 1
-      /https:\/\/.+\..+\//.match(lines[0]).wont_equal nil
+      %r{https://.+\..+/}.match(lines[0]).wont_equal nil
     end
   end
 
@@ -264,7 +261,7 @@ describe Commands do
     it 'must move sources into dest when given 3 or more args' do
       Commands::MKDIR.exec(client, state, 'source1', 'source2', 'dest')
       Commands::MV.exec(client, state, 'source1', 'source2', 'dest')
-      ['source2', 'source2'].all? do |dir|
+      %w(source2 source2).all? do |dir|
         client.metadata("/testing/#{dir}")['is_deleted'].must_equal true
         client.metadata("/testing/dest/#{dir}")
       end.must_equal true
@@ -298,7 +295,7 @@ describe Commands do
       lines = get_output(:SHARE, client, state, to_path)
       delete_temp_file(client, state)
       lines.length.must_equal 1
-      /https:\/\/.+\..+\//.match(lines[0]).wont_equal nil
+      %r{https://.+\..+/}.match(lines[0]).wont_equal nil
     end
   end
 

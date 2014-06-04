@@ -10,6 +10,11 @@ task :verbose_test do
   sh 'ruby -w spec/all.rb'
 end
 
+desc 'check code with rubocop'
+task :cop do
+  sh 'rubocop bin lib spec'
+end
+
 desc 'run program'
 task :run do
   sh 'ruby bin/droxi'
@@ -34,8 +39,7 @@ task :build do
 
     contents = "#!/usr/bin/env ruby\n\n"
     contents << `cat -s #{filenames.join(' ')} \
-                 | grep -v require_relative \
-                 | grep -v "require 'droxi'"`
+                 | grep -v require_relative`
 
     IO.write('build/droxi', contents)
     File.chmod(0755, 'build/droxi')

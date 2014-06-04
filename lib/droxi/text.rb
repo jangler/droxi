@@ -1,16 +1,15 @@
 # Module containing text-manipulation methods.
 module Text
-
   # The assumed width of the terminal if GNU Readline can't retrieve it.
   DEFAULT_WIDTH = 72
-  
+
   # Format an +Array+ of +Strings+ as a table and return an +Array+ of lines
   # in the result.
   def self.table(items)
     if items.empty?
       []
     else
-      columns = get_columns
+      columns = terminal_width
       item_width = items.map { |item| item.length }.max + 2
       items_per_line = [1, columns / item_width].max
       num_lines = (items.length.to_f / items_per_line).ceil
@@ -21,7 +20,7 @@ module Text
   # Wrap a +String+ to fit the terminal and return an +Array+ of lines in the
   # result.
   def self.wrap(text)
-    columns = get_columns
+    columns = terminal_width
     position = 0
     lines = []
     while position < text.length
@@ -34,7 +33,7 @@ module Text
   private
 
   # Return the width of the terminal in columns.
-  def self.get_columns
+  def self.terminal_width
     require 'readline'
     begin
       columns = Readline.get_screen_size[1]
@@ -55,9 +54,9 @@ module Text
 
   # Return a wrapped line of output from the start of the given text.
   def self.get_wrap_segment(text, columns)
-    segment, sep, text = text.partition(' ')
+    segment, _, text = text.partition(' ')
     while !text.empty? && segment.length < columns
-      head, sep, text = text.partition(' ')
+      head, _, text = text.partition(' ')
       segment << " #{head}"
     end
     if segment.length > columns && segment.include?(' ')
@@ -66,5 +65,4 @@ module Text
       segment
     end
   end
-
 end

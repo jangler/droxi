@@ -8,18 +8,16 @@ require_relative 'droxi/state'
 
 # Command-line Dropbox client module.
 module Droxi
-
   # Run the client.
   def self.run(*args)
-    client = DropboxClient.new(get_access_token)
+    client = DropboxClient.new(access_token)
     state = State.new(client)
 
     if args.empty?
       run_interactive(client, state)
     else
       with_interrupt_handling do
-        cmd = args.map { |arg| arg.gsub(' ', '\ ') }.join(' ')
-        Commands.exec(cmd, client, state)
+        Commands.exec(join_cmd(args), client, state)
       end
     end
 
@@ -28,6 +26,12 @@ module Droxi
 
   private
 
+  # Return a +String+ of joined command-line args, adding backslash escapes for
+  # spaces.
+  def self.join_cmd(args)
+    args.map { |arg| arg.gsub(' ', '\ ') }.join(' ')
+  end
+
   # Attempt to authorize the user for app usage.
   def self.authorize
     app_key = '5sufyfrvtro9zp7'
@@ -35,7 +39,7 @@ module Droxi
 
     flow = DropboxOAuth2FlowNoRedirect.new(app_key, app_secret)
 
-    authorize_url = flow.start()
+    authorize_url = flow.start
     code = get_auth_code(authorize_url)
 
     begin
@@ -47,8 +51,8 @@ module Droxi
 
   # Return the access token for the user, requesting authorization if no saved
   # token exists.
-  def self.get_access_token
-    authorize() until Settings.include?(:access_token)
+  def self.access_token
+    authorize until Settings.include?(:access_token)
     Settings[:access_token]
   end
 
@@ -69,37 +73,45 @@ module Droxi
     state.pwd = '/'
   end
 
+  # Return an +Array+ of potential tab-completion options for a given
+  # completion type, word, and client state.
+  def self.completion_options(type, word, state)
+    case type
+    when 'COMMAND'     then Complete.command(word, Commands::NAMES)
+    when 'LOCAL_FILE'  then Complete.local(word)
+    when 'LOCAL_DIR'   then Complete.local_dir(word)
+    when 'REMOTE_FILE' then Complete.remote(word, state)
+    when 'REMOTE_DIR'  then Complete.remote_dir(word, state)
+    else []
+    end
+  end
+
+  # Return a +String+ representing the type of tab-completion that should be
+  # performed, given the current line buffer state.
+  def self.completion_type
+    words = Readline.line_buffer.split
+    index = words.length
+    index += 1 if Readline.line_buffer.end_with?(' ')
+    if index <= 1
+      'COMMAND'
+    elsif Commands::NAMES.include?(words[0])
+      cmd = Commands.const_get(words[0].upcase.to_sym)
+      cmd.type_of_arg(index - 2)
+    end
+  end
+
   # Set up the Readline library's completion capabilities.
   def self.init_readline(state)
     Readline.completion_proc = proc do |word|
-      words = Readline.line_buffer.split
-      index = words.length
-      index += 1 if Readline.line_buffer.end_with?(' ')
-      if index <= 1
-        type = 'COMMAND'
-      elsif Commands::NAMES.include?(words[0])
-        cmd = Commands.const_get(words[0].upcase.to_sym)
-        type = cmd.type_of_arg(index - 2)
+      completion_options(completion_type, word, state).map do |option|
+        option.gsub(' ', '\ ').sub(/\\ $/, ' ')
       end
-
-      options = case type
-      when 'COMMAND'
-        Commands::NAMES.select { |name| name.start_with? word }.map do |name|
-          name + ' '
-        end
-      when 'LOCAL_FILE'  then Complete.local(word)
-      when 'LOCAL_DIR'   then Complete.local_dir(word)
-      when 'REMOTE_FILE' then Complete.remote(word, state)
-      when 'REMOTE_DIR'  then Complete.remote_dir(word, state)
-      else []
-      end
-
-      options.map { |option| option.gsub(' ', '\ ').sub(/\\ $/, ' ') }
     end
 
     begin
       Readline.completion_append_character = nil
     rescue NotImplementedError
+      nil
     end
   end
 
@@ -114,11 +126,12 @@ module Droxi
   # Run the main loop of the program, getting user input and executing it as a
   # command until an getting input fails or an exit is requested.
   def self.do_interaction_loop(client, state, info)
-    while !state.exit_requested &&
-          line = Readline.readline(prompt(info, state), true)
+    until state.exit_requested
+      line = Readline.readline(prompt(info, state), true)
+      break unless line
       with_interrupt_handling { Commands.exec(line.chomp, client, state) }
     end
-    puts if !line
+    puts unless line
   end
 
   # Instruct the user to enter an authorization code and return the code. If
@@ -131,5 +144,4 @@ module Droxi
     code = $stdin.gets
     code ? code.strip! : exit
   end
-
 end

@@ -16,11 +16,11 @@ describe Text do
                   laborum.".squeeze(' ')
     @big_word = "Lopadotemachoselachogaleokranioleipsanodrimhypotrimmatosilphi\
                  oparaomelitokatakechymenokichlepikossyphophattoperisteralektr\
-                 yonoptekephalliokigklopeleiolagoiosiraiobaphetraganopterygon".
-                   gsub(' ', '')
+                 yonoptekephalliokigklopeleiolagoiosiraiobaphetraganopterygon"
+                   .gsub(' ', '')
   end
 
-  describe "when wrapping text" do
+  describe 'when wrapping text' do
     it "won't return any line larger than the screen width if unnecessary" do
       Text.wrap(@paragraph).all? do |line|
         line.length <= @columns
@@ -32,8 +32,8 @@ describe Text do
     end
   end
 
-  describe "when tabulating text" do
-    it "must space items equally" do
+  describe 'when tabulating text' do
+    it 'must space items equally' do
       lines = Text.table(@paragraph.split)
       lines = lines[0, lines.length - 1]
 

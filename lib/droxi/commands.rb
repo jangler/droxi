@@ -4,7 +4,6 @@ require_relative 'text'
 
 # Module containing definitions for client commands.
 module Commands
-
   # Exception indicating that a client command was given the wrong number of
   # arguments.
   class UsageError < ArgumentError
@@ -12,7 +11,6 @@ module Commands
 
   # A client command. Contains metadata as well as execution procedure.
   class Command
-
     # A +String+ specifying the usage of the command in the style of a man page
     # synopsis. Optional arguments are enclosed in brackets; varargs-style
     # arguments are suffixed with an ellipsis.
@@ -82,7 +80,7 @@ module Commands
      Dropbox root. With a remote directory name as the argument, changes to \
      that directory. With - as the argument, changes to the previous working \
      directory.",
-    lambda do |client, state, args, output|
+    lambda do |_client, state, args, output|
       if args.empty?
         state.pwd = '/'
       elsif args[0] == '-'
@@ -106,15 +104,15 @@ module Commands
      final argument is a directory, copies each remote file or folder into \
      that directory.",
     lambda do |client, state, args, output|
-      cp_mv(client, state, args, output, 'cp', :file_copy)
+      cp_mv(client, state, args, output, 'cp')
     end
   )
 
   # Terminate the session.
   EXIT = Command.new(
     'exit',
-    "Exit the program.",
-    lambda do |client, state, args, output|
+    'Exit the program.',
+    lambda do |_client, state, _args, _output|
       state.exit_requested = true
     end
   )
@@ -125,7 +123,7 @@ module Commands
     "Clear the client-side cache of remote filesystem metadata. With no \
      arguments, clear the entire cache. If given directories as arguments, \
      (recursively) clear the cache of those directories only.",
-    lambda do |client, state, args, output|
+    lambda do |_client, state, args, output|
       if args.empty?
         state.cache.clear
       else
@@ -163,7 +161,7 @@ module Commands
     'help [COMMAND]',
     "Print usage and help information about a command. If no command is \
      given, print a list of commands instead.",
-    lambda do |client, state, args, output|
+    lambda do |_client, _state, args, output|
       if args.empty?
         Text.table(NAMES).each { |line| output.call(line) }
       else
@@ -186,14 +184,14 @@ module Commands
      home directory. With a local directory name as the argument, changes to \
      that directory. With - as the argument, changes to the previous working \
      directory.",
-    lambda do |client, state, args, output|
+    lambda do |_client, state, args, output|
       path = if args.empty?
-        File.expand_path('~')
-      elsif args[0] == '-'
-        state.local_oldpwd
-      else
-        File.expand_path(args[0])
-      end
+               File.expand_path('~')
+             elsif args[0] == '-'
+               state.local_oldpwd
+             else
+               File.expand_path(args[0])
+             end
 
       if Dir.exist?(path)
         state.local_oldpwd = Dir.pwd
@@ -212,8 +210,8 @@ module Commands
      arguments, list the contents of the directories. When given remote files \
      as arguments, list the files. If the -l option is given, display \
      information about the files.",
-    lambda do |client, state, args, output|
-      long = args.delete('-l') != nil
+    lambda do |_client, state, args, output|
+      long = args.delete('-l')
 
       files, dirs = [], []
       state.expand_patterns(args, true).each do |path|
@@ -229,7 +227,7 @@ module Commands
 
       # First list files
       list(state, files, files, long) { |line| output.call(line) }
-      output.call('') if !(dirs.empty? || files.empty?)
+      output.call('') unless dirs.empty? || files.empty?
 
       # Then list directory contents
       dirs.each_with_index do |dir, i|
@@ -264,7 +262,7 @@ module Commands
   # Create a remote directory.
   MKDIR = Command.new(
     'mkdir REMOTE_DIR...',
-    "Create remote directories.",
+    'Create remote directories.',
     lambda do |client, state, args, output|
       args.each do |arg|
         try_and_handle(DropboxError, output) do
@@ -283,7 +281,7 @@ module Commands
      final argument is a directory, moves each remote file or folder into \
      that directory.",
     lambda do |client, state, args, output|
-      cp_mv(client, state, args, output, 'mv', :file_move)
+      cp_mv(client, state, args, output, 'mv')
     end
   )
 
@@ -303,7 +301,7 @@ module Commands
       end
       to_path = state.resolve_path(to_path)
 
-      try_and_handle(Exception, output) do 
+      try_and_handle(Exception, output) do
         File.open(File.expand_path(from_path), 'rb') do |file|
           data = client.put_file(to_path, file)
           state.cache[data['path']] = data
@@ -316,7 +314,7 @@ module Commands
   # Remove remote files.
   RM = Command.new(
     'rm REMOTE_FILE...',
-    "Remove each specified remote file or directory.",
+    'Remove each specified remote file or directory.',
     lambda do |client, state, args, output|
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
@@ -324,7 +322,7 @@ module Commands
         else
           try_and_handle(DropboxError, output) do
             client.file_delete(path)
-            state.cache_remove(path)
+            state.cache.remove(path)
           end
         end
       end
@@ -353,16 +351,20 @@ module Commands
     end
   )
 
+  # Return an +Array+ of all command names.
+  def self.names
+    symbols = constants.select { |sym| const_get(sym).is_a?(Command) }
+    symbols.map { |sym| sym.to_s.downcase }
+  end
+
   # +Array+ of all command names.
-  NAMES = constants.select do |sym|
-     const_get(sym).is_a?(Command)
-  end.map { |sym| sym.to_s.downcase }
+  NAMES = names
 
   # Parse and execute a line of user input in the given context.
   def self.exec(input, client, state)
     if input.start_with?('!')
       shell(input[1, input.length - 1]) { |line| puts line }
-    elsif not input.empty?
+    elsif !input.empty?
       tokens = tokenize(input)
       cmd, args = tokens[0], tokens.drop(1)
       try_command(cmd, args, client, state)
@@ -399,10 +401,10 @@ module Commands
   def self.tokenize(string)
     string.split.reduce([]) do |list, token|
       list << if !list.empty? && list.last.end_with?('\\')
-        "#{list.pop.chop} #{token}"
-      else
-        token
-      end
+                "#{list.pop.chop} #{token}"
+              else
+                token
+              end
     end
   end
 
@@ -432,14 +434,15 @@ module Commands
       pipe.each_line { |line| yield line.chomp if block_given? }
     end
   rescue Interrupt
-  rescue Exception => error
+    yield ''
+  rescue Errno::ENOENT => error
     yield error.to_s if block_given?
   end
 
   # Return an +Array+ of paths from an +Array+ of globs, passing error messages
   # to the output +Proc+ for non-matches.
   def self.expand(state, paths, preserve_root, output, cmd_name)
-    state.expand_patterns(paths, true).map do |item|
+    state.expand_patterns(paths, preserve_root).map do |item|
       if item.is_a?(GlobError)
         output.call("#{cmd_name}: #{item}: no such file or directory")
         nil
@@ -449,34 +452,42 @@ module Commands
     end.compact
   end
 
-  # Copies or moves the file at +source+ to +dest+ and passes a description of
-  # the operation to the output +Proc+.
-  def self.copy_move(method, source, dest, client, state, output)
-    from_path, to_path = [source, dest].map { |p| state.resolve_path(p) }
+  # Copies or moves a file and passes a description of the operation to the
+  # output +Proc+.
+  def self.copy_move(method, args, client, state, output)
+    from_path, to_path = args.map { |p| state.resolve_path(p) }
     try_and_handle(DropboxError, output) do
       metadata = client.send(method, from_path, to_path)
-      state.cache_remove(from_path) if method == :file_move
-      state.cache_add(metadata)
-      output.call("#{source} -> #{dest}")
+      state.cache.remove(from_path) if method == :file_move
+      state.cache.add(metadata)
+      output.call("#{args[0]} -> #{args[1]}")
     end
   end
 
   # Execute a 'mv' or 'cp' operation depending on arguments given.
-  def self.cp_mv(client, state, args, output, cmd, method)
+  def self.cp_mv(client, state, args, output, cmd)
     sources = expand(state, args.take(args.length - 1), true, output, cmd)
+    method = (cmd == 'cp') ? :file_copy : :file_move
     dest = state.resolve_path(args.last)
 
     if sources.length == 1 && !state.directory?(dest)
-      copy_move(method, sources[0], args.last, client, state, output)
+      copy_move(method, [sources[0], args.last], client, state, output)
     else
-      if state.metadata(dest)
-        sources.each do |source|
-          to_path = args.last.chomp('/') + '/' + File.basename(source)
-          copy_move(method, source, to_path, client, state, output)
-        end
-      else
-        output.call("#{cmd}: #{args.last}: no such directory")
+      cp_mv_to_dir(args, client, state, cmd, output)
+    end
+  end
+
+  # Copies or moves files into a directory.
+  def self.cp_mv_to_dir(args, client, state, cmd, output)
+    sources = expand(state, args.take(args.length - 1), true, output, cmd)
+    method = (cmd == 'cp') ? :file_copy : :file_move
+    if state.metadata(state.resolve_path(args.last))
+      sources.each do |source|
+        to_path = args.last.chomp('/') + '/' + File.basename(source)
+        copy_move(method, [source, to_path], client, state, output)
       end
+    else
+      output.call("#{cmd}: #{args.last}: no such directory")
     end
   end
 
@@ -485,5 +496,4 @@ module Commands
   def self.check_pwd(state)
     state.pwd = File.dirname(state.pwd) until state.metadata(state.pwd)
   end
-
 end

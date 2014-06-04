@@ -30,3 +30,10 @@ features
 - context-sensitive tab completion and path globbing
 - upload, download, and share files
 - man page and interactive help
+
+developer features
+------------------
+
+- spec-style unit tests using [MiniTest](https://github.com/seattlerb/minitest)
+- [RuboCop](https://github.com/bbatsov/rubocop) approved
+- fully [RDoc](http://rdoc.sourceforge.net/) documented

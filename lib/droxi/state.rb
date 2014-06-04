@@ -4,9 +4,41 @@ require_relative 'settings'
 class GlobError < ArgumentError
 end
 
+# Special +Hash+ of remote file paths to cached file metadata.
+class Cache < Hash
+  # Add a metadata +Hash+ and its contents to the +Cache+ and return the
+  # +Cache+.
+  def add(metadata)
+    store(metadata['path'], metadata)
+    return self unless metadata.include?('contents')
+    metadata['contents'].each { |content| add(content) }
+    self
+  end
+
+  # Remove a path from the +Cache+ and return the +Cache+.
+  def remove(path)
+    if fetch(path, {}).include?('contents')
+      fetch(path)['contents'].each { |item| remove(item['path']) }
+    end
+
+    delete(path)
+
+    dir = File.dirname(path)
+    return self unless fetch(dir, {}).include?('contents')
+    fetch(dir)['contents'].delete_if { |item| item['path'] == path }
+
+    self
+  end
+
+  # Return +true+ if the path's information is cached, +false+ otherwise.
+  def full_info?(path, require_contents = true)
+    info = fetch(path, nil)
+    info && (!require_contents || !info['is_dir'] || info.include?('contents'))
+  end
+end
+
 # Encapsulates the session state of the client.
 class State
-
   # +Hash+ of remote file paths to cached file metadata.
   attr_reader :cache
 
@@ -18,14 +50,14 @@ class State
 
   # The previous local working directory path.
   attr_accessor :local_oldpwd
-  
+
   # +true+ if the client has requested to quit, +false+ otherwise.
   attr_accessor :exit_requested
 
   # Return a new application state that uses the given client. Starts at the
   # Dropbox root and with an empty cache.
   def initialize(client)
-    @cache = {}
+    @cache = Cache.new
     @client = client
     @exit_requested = false
     @pwd = '/'
@@ -33,50 +65,15 @@ class State
     @local_oldpwd = Dir.pwd
   end
 
-  # Adds a metadata +Hash+ and its contents to the metadata cache.
-  def cache_add(metadata)
-    @cache[metadata['path']] = metadata
-    if metadata.include?('contents')
-      metadata['contents'].each { |content| cache_add(content) }
-    end
-  end
-
-  # Removes a path from the metadata cache.
-  def cache_remove(path)
-    if directory?(path) && @cache[path].include?('contents')
-      @cache[path]['contents'].each { |item| cache_remove(item['path']) }
-    end
-
-    @cache.delete(path)
-
-    dir = File.dirname(path)
-    if @cache.include?(dir) && @cache[dir].include?('contents')
-      @cache[dir]['contents'].delete_if { |item| item['path'] == path }
-    end
-  end
-
   # Return a +Hash+ of the Dropbox metadata for a file, or +nil+ if the file
   # does not exist.
-  def metadata(path, require_contents=true)
+  def metadata(path, require_contents = true)
     tokens = path.split('/').drop(1)
 
-    for i in 0..tokens.length
+    (0..tokens.length).each do |i|
       partial_path = '/' + tokens.take(i).join('/')
-      unless have_all_info_for(partial_path, require_contents)
-        begin
-          data = @client.metadata(partial_path)
-          if !data['is_deleted']
-            @cache[partial_path] = data 
-            if data.include?('contents')
-              data['contents'].each do |datum|  
-                @cache[datum['path']] = datum
-              end
-            end
-          end
-        rescue DropboxError
-          return nil
-        end
-      end
+      next if @cache.full_info?(partial_path, require_contents)
+      return nil unless fetch_metadata(partial_path)
     end
 
     @cache[path]
@@ -110,7 +107,7 @@ class State
   def resolve_path(arg)
     path = arg.start_with?('/') ? arg.dup : "#{@pwd}/#{arg}"
     path.gsub!('//', '/')
-    nil while path.sub!(/\/([^\/]+?)\/\.\./, '')
+    nil while path.sub!(%r{/([^/]+?)/\.\.}, '')
     nil while path.sub!('./', '')
     path.sub!(/\/\.$/, '')
     path.chomp!('/')
@@ -120,7 +117,7 @@ class State
 
   # Expand an +Array+ of file globs into an an +Array+ of Dropbox file paths
   # and return the result.
-  def expand_patterns(patterns, preserve_root=false)
+  def expand_patterns(patterns, preserve_root = false)
     patterns.map do |pattern|
       path = resolve_path(pattern)
       if directory?(path)
@@ -147,6 +144,21 @@ class State
 
   private
 
+  # Cache metadata for the remote file for a given path. Return +true+ if
+  # successful, +false+ otherwise.
+  def fetch_metadata(path)
+    data = @client.metadata(path)
+    return if data['is_deleted']
+    @cache[path] = data
+    return unless data.include?('contents')
+    data['contents'].each do |datum|
+      @cache[datum['path']] = datum
+    end
+    true
+  rescue DropboxError
+    false
+  end
+
   # Return an +Array+ of file paths matching a glob pattern, or a GlobError if
   # no files were matched.
   def get_matches(pattern, path, preserve_root)
@@ -155,20 +167,10 @@ class State
     if matches.empty?
       GlobError.new(pattern)
     elsif preserve_root
-      prefix = pattern.rpartition('/')[0, 2].join 
+      prefix = pattern.rpartition('/')[0, 2].join
       matches.map { |match| prefix + match.rpartition('/')[2] }
     else
       matches
     end
   end
-
-  # Return +true+ if the path's information is cached, +false+ otherwise.
-  def have_all_info_for(path, require_contents=true)
-    @cache.include?(path) && (
-      !require_contents ||
-      !@cache[path]['is_dir'] ||
-      @cache[path].include?('contents')
-    )
-  end
-
 end

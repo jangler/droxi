@@ -1,14 +1,18 @@
 # Module containing tab-completion logic and methods.
 module Complete
+  # Return an +Array+ of potential command name tab-completions for a +String+.
+  def self.command(word, names)
+    names.select { |name| name.start_with? word }.map do |name|
+      name + ' '
+    end
+  end
 
   # Return the directory in which to search for potential local tab-completions
   # for a +String+. Defaults to working directory in case of bogus input.
   def self.local_search_path(string)
-    begin
-      File.expand_path(strip_filename(string))
-    rescue
-      Dir.pwd
-    end
+    File.expand_path(strip_filename(string))
+  rescue
+    Dir.pwd
   end
 
   # Return an +Array+ of potential local tab-completions for a +String+.
@@ -16,9 +20,10 @@ module Complete
     dir = local_search_path(string)
     name = string.end_with?('/') ? '' : File.basename(string)
 
-    Dir.entries(dir).select do |entry|
+    matches = Dir.entries(dir).select do |entry|
       entry.start_with?(name) && !/^\.{1,2}$/.match(entry)
-    end.map do |entry|
+    end
+    matches.map do |entry|
       entry << (File.directory?(dir + '/' + entry) ? '/' : ' ')
       string + entry[name.length, entry.length]
     end
@@ -33,7 +38,8 @@ module Complete
   # Return the directory in which to search for potential remote
   # tab-completions for a +String+.
   def self.remote_search_path(string, state)
-    path = case
+    path =
+    case
     when string.empty? then state.pwd + '/'
     when string.start_with?('/') then string
     else state.pwd + '/' + string
@@ -47,11 +53,11 @@ module Complete
     dir = remote_search_path(string, state)
     name = string.end_with?('/') ? '' : File.basename(string)
 
-    state.contents(dir).map do |entry|
-      File.basename(entry) 
-    end.select do |entry|
+    basenames = state.contents(dir).map { |entry| File.basename(entry) }
+    matches = basenames.select do |entry|
       entry.start_with?(name) && !/^\.{1,2}$/.match(entry)
-    end.map do |entry|
+    end
+    matches.map do |entry|
       entry << (state.directory?(dir + '/' + entry) ? '/' : ' ')
       string + entry[name.length, entry.length]
     end
@@ -78,9 +84,8 @@ module Complete
   # directories.
   def self.collapse(path)
     new_path = path.dup
-    nil while new_path.sub!(/[^\/]+\/\.\.\//, '/')
+    nil while new_path.sub!(%r{[^/]+/\.\./}, '/')
     nil while new_path.sub!('./', '')
     new_path
   end
-
 end
