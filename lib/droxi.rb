@@ -54,7 +54,7 @@ module Droxi
 
   # Return a prompt message reflecting the current state of the application.
   def self.prompt(info, state)
-    "droxi #{info['email']}:#{state.pwd}> "
+    "\rdroxi #{info['email']}:#{state.pwd}> "
   end
 
   # Run the client in interactive mode.

@@ -41,6 +41,20 @@ class State
     end
   end
 
+  # Removes a path from the metadata cache.
+  def cache_remove(path)
+    if directory?(path) && @cache[path].include?('contents')
+      @cache[path]['contents'].each { |item| cache_remove(item['path']) }
+    end
+
+    @cache.delete(path)
+
+    dir = File.dirname(path)
+    if @cache.include?(dir) && @cache[dir].include?('contents')
+      @cache[dir]['contents'].delete_if { |item| item['path'] == path }
+    end
+  end
+
   # Return a +Hash+ of the Dropbox metadata for a file, or +nil+ if the file
   # does not exist.
   def metadata(path, require_contents=true)
@@ -50,14 +64,17 @@ class State
       partial_path = '/' + tokens.take(i).join('/')
       unless have_all_info_for(partial_path, require_contents)
         begin
-          data = @cache[partial_path] = @client.metadata(partial_path)
+          data = @client.metadata(partial_path)
+          if !data['is_deleted']
+            @cache[partial_path] = data 
+            if data.include?('contents')
+              data['contents'].each do |datum|  
+                @cache[datum['path']] = datum
+              end
+            end
+          end
         rescue DropboxError
           return nil
-        end
-        if data.include?('contents')
-          data['contents'].each do |datum|  
-            @cache[datum['path']] = datum
-          end
         end
       end
     end

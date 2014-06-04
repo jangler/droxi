@@ -304,10 +304,17 @@ describe Commands do
 
   describe 'when executing the rm command' do
     it 'must remove the remote file when given args' do
-      # FIXME: This test fails and I don't know why
-      #Commands::MKDIR.exec(client, state, '/testing/test')
-      #Commands::RM.exec(client, state, '/testing/test')
-      #client.metadata('/testing/test')['is_deleted'].must_equal true
+      Commands::MKDIR.exec(client, state, '/testing/test')
+      Commands::RM.exec(client, state, '/testing/test')
+      client.metadata('/testing/test')['is_deleted'].must_equal true
+    end
+
+    it 'must change pwd to existing dir if the current one is removed' do
+      Commands::MKDIR.exec(client, state, '/testing/one')
+      Commands::MKDIR.exec(client, state, '/testing/one/two')
+      Commands::CD.exec(client, state, '/testing/one/two')
+      Commands::RM.exec(client, state, '..')
+      state.pwd.must_equal('/testing')
     end
   end
 end

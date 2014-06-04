@@ -324,10 +324,11 @@ module Commands
         else
           try_and_handle(DropboxError, output) do
             client.file_delete(path)
-            state.cache.delete(path)
+            state.cache_remove(path)
           end
         end
       end
+      check_pwd(state)
     end
   )
 
@@ -454,7 +455,7 @@ module Commands
     from_path, to_path = [source, dest].map { |p| state.resolve_path(p) }
     try_and_handle(DropboxError, output) do
       metadata = client.send(method, from_path, to_path)
-      state.cache.delete(from_path) if method == :file_move
+      state.cache_remove(from_path) if method == :file_move
       state.cache_add(metadata)
       output.call("#{source} -> #{dest}")
     end
@@ -477,6 +478,12 @@ module Commands
         output.call("#{cmd}: #{args.last}: no such directory")
       end
     end
+  end
+
+  # If the remote working directory does not exist, move up the directory
+  # tree until at a real location.
+  def self.check_pwd(state)
+    state.pwd = File.dirname(state.pwd) until state.metadata(state.pwd)
   end
 
 end
