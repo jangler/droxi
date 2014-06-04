@@ -38,6 +38,7 @@ class Settings
       FileUtils.mkdir_p(File.dirname(CONFIG_FILE_PATH))
       File.open(CONFIG_FILE_PATH, 'w') do |file|
         @@settings.each_pair { |k, v| file.write("#{k}=#{v}\n") }
+        file.chmod(0600)
       end
     end
     nil
