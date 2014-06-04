@@ -106,21 +106,7 @@ module Commands
      final argument is a directory, copies each remote file or folder into \
      that directory.",
     lambda do |client, state, args, output|
-      sources = expand(state, args.take(args.length - 1), true, output)
-      dest = state.resolve_path(args.last)
-
-      if sources.length == 1 && !state.directory?(dest)
-        copy(sources[0], args.last, client, state, output)
-      else
-        if state.metadata(dest)
-          sources.each do |source|
-            to_path = args.last.chomp('/') + '/' + File.basename(source)
-            copy(source, to_path, client, state, output)
-          end
-        else
-          output.call("cp: #{args.last}: no such directory")
-        end
-      end
+      cp_mv(client, state, args, output, 'cp', :file_copy)
     end
   )
 
@@ -289,6 +275,18 @@ module Commands
     end
   )
 
+  # Move/rename remote files.
+  MV = Command.new(
+    'mv REMOTE_FILE... REMOTE_FILE',
+    "When given two arguments, moves the remote file or folder at the first \
+     path to the second path. When given more than two arguments or when the \
+     final argument is a directory, moves each remote file or folder into \
+     that directory.",
+    lambda do |client, state, args, output|
+      cp_mv(client, state, args, output, 'mv', :file_move)
+    end
+  )
+
   # Upload a local file.
   PUT = Command.new(
     'put LOCAL_FILE [REMOTE_FILE]',
@@ -439,10 +437,10 @@ module Commands
 
   # Return an +Array+ of paths from an +Array+ of globs, passing error messages
   # to the output +Proc+ for non-matches.
-  def self.expand(state, paths, preserve_root, output)
+  def self.expand(state, paths, preserve_root, output, cmd_name)
     state.expand_patterns(paths, true).map do |item|
       if item.is_a?(GlobError)
-        output.call("cp: #{item}: no such file or directory")
+        output.call("#{cmd_name}: #{item}: no such file or directory")
         nil
       else
         item
@@ -450,14 +448,34 @@ module Commands
     end.compact
   end
 
-  # Copies the file at +source+ to +dest+ and passes a description of the
-  # operation to the output +Proc+.
-  def self.copy(source, dest, client, state, output)
+  # Copies or moves the file at +source+ to +dest+ and passes a description of
+  # the operation to the output +Proc+.
+  def self.copy_move(method, source, dest, client, state, output)
     from_path, to_path = [source, dest].map { |p| state.resolve_path(p) }
     try_and_handle(DropboxError, output) do
-      metadata = client.file_copy(from_path, to_path)
+      metadata = client.send(method, from_path, to_path)
+      state.cache.delete(from_path) if method == :file_move
       state.cache_add(metadata)
       output.call("#{source} -> #{dest}")
+    end
+  end
+
+  # Execute a 'mv' or 'cp' operation depending on arguments given.
+  def self.cp_mv(client, state, args, output, cmd, method)
+    sources = expand(state, args.take(args.length - 1), true, output, cmd)
+    dest = state.resolve_path(args.last)
+
+    if sources.length == 1 && !state.directory?(dest)
+      copy_move(method, sources[0], args.last, client, state, output)
+    else
+      if state.metadata(dest)
+        sources.each do |source|
+          to_path = args.last.chomp('/') + '/' + File.basename(source)
+          copy_move(method, source, to_path, client, state, output)
+        end
+      else
+        output.call("#{cmd}: #{args.last}: no such directory")
+      end
     end
   end
 

@@ -238,6 +238,39 @@ describe Commands do
     end
   end
 
+  describe 'when executing the mv command' do
+    before do
+      state.pwd = '/testing'
+    end
+
+    after do
+      Commands::RM.exec(client, state, '*')
+    end
+
+    it 'must move source to dest when given 2 args and last arg is non-dir' do
+      Commands::MKDIR.exec(client, state, 'source')
+      Commands::MV.exec(client, state, 'source', 'dest')
+      client.metadata('/testing/source')['is_deleted'].must_equal true
+      client.metadata('/testing/dest').wont_equal nil
+    end
+
+    it 'must move source into dest when given 2 args and last arg is dir' do
+      Commands::MKDIR.exec(client, state, 'source', 'dest')
+      Commands::MV.exec(client, state, 'source', 'dest')
+      client.metadata('/testing/source')['is_deleted'].must_equal true
+      client.metadata('/testing/dest/source').wont_equal nil
+    end
+
+    it 'must move sources into dest when given 3 or more args' do
+      Commands::MKDIR.exec(client, state, 'source1', 'source2', 'dest')
+      Commands::MV.exec(client, state, 'source1', 'source2', 'dest')
+      ['source2', 'source2'].all? do |dir|
+        client.metadata("/testing/#{dir}")['is_deleted'].must_equal true
+        client.metadata("/testing/dest/#{dir}")
+      end.must_equal true
+    end
+  end
+
   describe 'when executing the put command' do
     it 'must put a file of the same name when given 1 arg' do
       state.pwd = '/testing'
