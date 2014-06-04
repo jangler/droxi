@@ -11,7 +11,7 @@ module Complete
     end
   end
 
-  # Returns an +Array+ of potential local tab-completions for a +String+.
+  # Return an +Array+ of potential local tab-completions for a +String+.
   def self.local(string)
     dir = local_search_path(string)
     name = string.end_with?('/') ? '' : File.basename(string)
@@ -24,7 +24,7 @@ module Complete
     end
   end
 
-  # Returns an +Array+ of potential local tab-completions for a +String+,
+  # Return an +Array+ of potential local tab-completions for a +String+,
   # including only directories.
   def self.local_dir(string)
     local(string).select { |result| result.end_with?('/') }
@@ -42,7 +42,7 @@ module Complete
     strip_filename(collapse(path))
   end
 
-  # Returns an +Array+ of potential remote tab-completions for a +String+.
+  # Return an +Array+ of potential remote tab-completions for a +String+.
   def self.remote(string, state)
     dir = remote_search_path(string, state)
     name = string.end_with?('/') ? '' : File.basename(string)
@@ -57,7 +57,7 @@ module Complete
     end
   end
 
-  # Returns an +Array+ of potential remote tab-completions for a +String+,
+  # Return an +Array+ of potential remote tab-completions for a +String+,
   # including only directories.
   def self.remote_dir(string, state)
     remote(string, state).select { |result| result.end_with?('/') }
@@ -65,6 +65,7 @@ module Complete
 
   private
 
+  # Return the name of the directory indicated by a path.
   def self.strip_filename(path)
     if path != '/'
       path.end_with?('/') ? path.sub(/\/$/, '') : File.dirname(path)
@@ -73,10 +74,13 @@ module Complete
     end
   end
 
+  # Return a version of a path with .. and . resolved to appropriate
+  # directories.
   def self.collapse(path)
-    nil while path.sub!(/[^\/]+\/\.\.\//, '/')
-    nil while path.sub!('./', '')
-    path
+    new_path = path.dup
+    nil while new_path.sub!(/[^\/]+\/\.\.\//, '/')
+    nil while new_path.sub!('./', '')
+    new_path
   end
 
 end

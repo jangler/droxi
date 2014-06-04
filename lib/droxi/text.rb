@@ -33,6 +33,7 @@ module Text
 
   private
 
+  # Return the width of the terminal in columns.
   def self.get_columns
     require 'readline'
     begin
@@ -43,6 +44,7 @@ module Text
     end
   end
 
+  # Return an +Array+ of lines of the given items formatted as a table.
   def self.format_table(items, item_width, items_per_line, num_lines)
     num_lines.times.map do |i|
       items[i * items_per_line, items_per_line].map do |item|
@@ -51,6 +53,7 @@ module Text
     end
   end
 
+  # Return a wrapped line of output from the start of the given text.
   def self.get_wrap_segment(text, columns)
     segment, sep, text = text.partition(' ')
     while !text.empty? && segment.length < columns

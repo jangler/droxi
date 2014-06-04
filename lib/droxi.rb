@@ -28,8 +28,7 @@ module Droxi
 
   private
 
-  # Attempt to authorize the user for app usage. Return +true+ if
-  # authorization was successful, +false+ otherwise.
+  # Attempt to authorize the user for app usage.
   def self.authorize
     app_key = '5sufyfrvtro9zp7'
     app_secret = 'h99ihzv86jyypho'
@@ -46,8 +45,8 @@ module Droxi
     end
   end
 
-  # Get the access token for the user, requesting authorization if no token
-  # exists.
+  # Return the access token for the user, requesting authorization if no saved
+  # token exists.
   def self.get_access_token
     authorize() until Settings.include?(:access_token)
     Settings[:access_token]
@@ -66,10 +65,11 @@ module Droxi
     init_readline(state)
     with_interrupt_handling { do_interaction_loop(client, state, info) }
 
-    # Set pwd so that the oldpwd setting is saved to pwd
+    # Set pwd before exiting so that the oldpwd setting is saved to pwd
     state.pwd = '/'
   end
 
+  # Set up the Readline library's completion capabilities.
   def self.init_readline(state)
     Readline.completion_proc = proc do |word|
       words = Readline.line_buffer.split
@@ -103,12 +103,16 @@ module Droxi
     end
   end
 
+  # Run the associated block, handling Interrupt errors by printing a blank
+  # line.
   def self.with_interrupt_handling
     yield
   rescue Interrupt
     puts
   end
 
+  # Run the main loop of the program, getting user input and executing it as a
+  # command until an getting input fails or an exit is requested.
   def self.do_interaction_loop(client, state, info)
     while !state.exit_requested &&
           line = Readline.readline(prompt(info, state), true)
@@ -117,6 +121,8 @@ module Droxi
     puts if !line
   end
 
+  # Instruct the user to enter an authorization code and return the code. If
+  # the user gives EOF, exit the program.
   def self.get_auth_code(url)
     puts '1. Go to: ' + url
     puts '2. Click "Allow" (you might have to log in first)'

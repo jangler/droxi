@@ -122,6 +122,8 @@ class State
 
   private
 
+  # Return an +Array+ of file paths matching a glob pattern, or a GlobError if
+  # no files were matched.
   def get_matches(pattern, path, preserve_root)
     dir = File.dirname(path)
     matches = contents(dir).select { |entry| File.fnmatch(path, entry) }
@@ -135,6 +137,7 @@ class State
     end
   end
 
+  # Return +true+ if the path's information is cached, +false+ otherwise.
   def have_all_info_for(path, require_contents=true)
     @cache.include?(path) && (
       !require_contents ||

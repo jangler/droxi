@@ -46,11 +46,15 @@ class Settings
 
   private
 
+  # Print a warning for an invalid setting and return an empty +Hash+ (the
+  # result of an invalid setting).
   def Settings.warn_invalid(line)
     warn "invalid setting: #{line}"
     {}
   end
 
+  # Parse a line of the rc file and return a +Hash+ containing the resulting
+  # setting data.
   def Settings.parse(line)
     if /^(.+?)=(.+)$/ =~ line
       key, value = $1.to_sym, $2
@@ -64,6 +68,7 @@ class Settings
     end
   end
 
+  # Read and parse the rc file.
   def Settings.read
     if File.exists?(CONFIG_FILE_PATH)
       File.open(CONFIG_FILE_PATH) do |file|

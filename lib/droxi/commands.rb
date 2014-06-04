@@ -132,14 +132,12 @@ module Commands
         if path.is_a?(GlobError)
           output.call("get: #{path}: No such file or directory")
         else
-          begin
+          try_and_handle(DropboxError, output) do
             contents = client.get_file(path)
             File.open(File.basename(path), 'wb') do |file|
               file.write(contents)
             end
             output.call("#{File.basename(path)} <- #{path}")
-          rescue DropboxError => error
-            output.call(error.to_s)
           end
         end
       end
@@ -240,11 +238,9 @@ module Commands
         if path.is_a?(GlobError)
           output.call("media: #{path}: No such file or directory")
         else
-          begin
+          try_and_handle(DropboxError, output) do
             url = client.media(path)['url']
             output.call("#{File.basename(path)} -> #{url}")
-          rescue DropboxError => error
-            output.call(error.to_s)
           end
         end
       end
@@ -257,11 +253,9 @@ module Commands
     "Create remote directories.",
     lambda do |client, state, args, output|
       args.each do |arg|
-        begin
+        try_and_handle(DropboxError, output) do
           path = state.resolve_path(arg)
           state.cache[path] = client.file_create_folder(path)
-        rescue DropboxError => error
-          output.call(error.to_s)
         end
       end
     end
@@ -283,14 +277,12 @@ module Commands
       end
       to_path = state.resolve_path(to_path)
 
-      begin
+      try_and_handle(Exception, output) do 
         File.open(File.expand_path(from_path), 'rb') do |file|
           data = client.put_file(to_path, file)
           state.cache[data['path']] = data
           output.call("#{from_path} -> #{data['path']}")
         end
-      rescue Exception => error
-        output.call(error.to_s)
       end
     end
   )
@@ -304,11 +296,9 @@ module Commands
         if path.is_a?(GlobError)
           output.call("rm: #{path}: No such file or directory")
         else
-          begin
+          try_and_handle(DropboxError, output) do
             client.file_delete(path)
             state.cache.delete(path)
-          rescue DropboxError => error
-            output.call(error.to_s)
           end
         end
       end
@@ -327,11 +317,9 @@ module Commands
         if path.is_a?(GlobError)
           output.call("share: #{path}: No such file or directory")
         else
-          begin
+          try_and_handle(DropboxError, output) do
             url = client.shares(path)['url']
             output.call("#{File.basename(path)} -> #{url}")
-          rescue DropboxError => error
-            output.call(error.to_s)
           end
         end
       end
@@ -356,6 +344,16 @@ module Commands
 
   private
 
+  # Attempt to run the associated block, handling the given type of +Exception+
+  # by passing its +String+ representation to an output +Proc+.
+  def self.try_and_handle(exception_class, output)
+    yield
+  rescue exception_class => error
+    output.call(error.to_s)
+  end
+
+  # Run a command with the given name, or print an error message if usage is
+  # incorrect or no such command exists.
   def self.try_command(command_name, args, client, state)
     if NAMES.include?(command_name)
       begin
@@ -369,6 +367,8 @@ module Commands
     end
   end
 
+  # Split a +String+ into tokens, allowing for backslash-escaped spaces, and
+  # return the resulting +Array+.
   def self.tokenize(string)
     string.split.reduce([]) do |list, token|
       list << if !list.empty? && list.last.end_with?('\\')
@@ -379,6 +379,7 @@ module Commands
     end
   end
 
+  # Return a +String+ of information about a remote file for ls -l.
   def self.long_info(state, path, name)
     meta = state.metadata(state.resolve_path(path), false)
     is_dir = meta['is_dir'] ? 'd' : '-'
@@ -388,6 +389,8 @@ module Commands
     "#{is_dir} #{size} #{mtime.strftime(format_str)} #{name}"
   end
 
+  # Yield lines of output for the ls command executed on the given file paths
+  # and names.
   def self.list(state, paths, names, long)
     if long
       paths.zip(names).each { |path, name| yield long_info(state, path, name) }
@@ -396,6 +399,7 @@ module Commands
     end
   end
 
+  # Run a command in the system shell and yield lines of output.
   def self.shell(cmd)
     IO.popen(cmd) do |pipe|
       pipe.each_line { |line| yield line.chomp if block_given? }
