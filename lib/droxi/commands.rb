@@ -308,7 +308,7 @@ module Commands
       try_and_handle(Exception, output) do
         File.open(File.expand_path(from_path), 'rb') do |file|
           data = client.put_file(to_path, file)
-          state.cache[data['path']] = data
+          state.cache.add(data)
           output.call("#{from_path} -> #{data['path']}")
         end
       end

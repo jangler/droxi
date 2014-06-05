@@ -1,5 +1,3 @@
-require 'fileutils'
-
 require_relative '../lib/droxi/commands'
 
 # Module of helper methods for testing.

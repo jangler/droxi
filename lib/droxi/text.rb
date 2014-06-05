@@ -6,25 +6,20 @@ module Text
   # Format an +Array+ of +Strings+ as a table and return an +Array+ of lines
   # in the result.
   def self.table(items)
-    if items.empty?
-      []
-    else
-      columns = terminal_width
-      item_width = items.map { |item| item.length }.max + 2
-      items_per_line = [1, columns / item_width].max
-      num_lines = (items.length.to_f / items_per_line).ceil
-      format_table(items, item_width, items_per_line, num_lines)
-    end
+    return [] if items.empty?
+    width = terminal_width
+    item_width = items.map { |item| item.length }.max + 2
+    items_per_line = [1, width / item_width].max
+    format_table(items, item_width, items_per_line)
   end
 
   # Wrap a +String+ to fit the terminal and return an +Array+ of lines in the
   # result.
   def self.wrap(text)
-    columns = terminal_width
-    position = 0
+    width, position = terminal_width, 0
     lines = []
     while position < text.length
-      lines << get_wrap_segment(text[position, text.length], columns)
+      lines << get_wrap_segment(text[position, text.length], width)
       position += lines.last.length + 1
     end
     lines
@@ -35,34 +30,31 @@ module Text
   # Return the width of the terminal in columns.
   def self.terminal_width
     require 'readline'
-    begin
-      columns = Readline.get_screen_size[1]
-      columns > 0 ? columns : DEFAULT_WIDTH
-    rescue NotImplementedError
-      DEFAULT_WIDTH
-    end
+    width = Readline.get_screen_size[1]
+    width > 0 ? width : DEFAULT_WIDTH
+  rescue NotImplementedError
+    DEFAULT_WIDTH
   end
 
   # Return an +Array+ of lines of the given items formatted as a table.
-  def self.format_table(items, item_width, items_per_line, num_lines)
-    num_lines.times.map do |i|
-      items[i * items_per_line, items_per_line].map do |item|
-        item.ljust(item_width)
-      end.join
+  def self.format_table(items, item_width, columns)
+    lines, items = [], items.dup
+    until items.empty?
+      lines << items.shift(columns).map { |item| item.ljust(item_width) }.join
     end
+    lines
   end
 
   # Return a wrapped line of output from the start of the given text.
-  def self.get_wrap_segment(text, columns)
-    segment, _, text = text.partition(' ')
-    while !text.empty? && segment.length < columns
+  def self.get_wrap_segment(text, width)
+    line = ''
+    loop do
       head, _, text = text.partition(' ')
-      segment << " #{head}"
+      line << "#{head} "
+      break if text.empty? || line.length >= width
     end
-    if segment.length > columns && segment.include?(' ')
-      segment.rpartition(' ')[0]
-    else
-      segment
-    end
+    line.strip!
+    trim_last_word = line.length > width && line.include?(' ')
+    trim_last_word ? line.rpartition(' ')[0] : line
   end
 end

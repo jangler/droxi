@@ -1,10 +1,8 @@
 # Module containing tab-completion logic and methods.
 module Complete
   # Return an +Array+ of potential command name tab-completions for a +String+.
-  def self.command(word, names)
-    names.select { |name| name.start_with? word }.map do |name|
-      name + ' '
-    end
+  def self.command(string, names)
+    names.select { |n| n.start_with?(string) }.map { |n| n + ' ' }
   end
 
   # Return the directory in which to search for potential local tab-completions
@@ -18,32 +16,28 @@ module Complete
   # Return an +Array+ of potential local tab-completions for a +String+.
   def self.local(string)
     dir = local_search_path(string)
-    name = string.end_with?('/') ? '' : File.basename(string)
+    basename = basename(string)
 
-    matches = Dir.entries(dir).select do |entry|
-      entry.start_with?(name) && !/^\.{1,2}$/.match(entry)
-    end
+    matches = Dir.entries(dir).select { |entry| match?(basename, entry) }
     matches.map do |entry|
-      entry << (File.directory?(dir + '/' + entry) ? '/' : ' ')
-      string + entry[name.length, entry.length]
+      final_match(string, entry, File.directory?(dir + '/' + entry))
     end
   end
 
   # Return an +Array+ of potential local tab-completions for a +String+,
   # including only directories.
   def self.local_dir(string)
-    local(string).select { |result| result.end_with?('/') }
+    local(string).select { |match| match.end_with?('/') }
   end
 
   # Return the directory in which to search for potential remote
   # tab-completions for a +String+.
   def self.remote_search_path(string, state)
-    path =
-    case
-    when string.empty? then state.pwd + '/'
-    when string.start_with?('/') then string
-    else state.pwd + '/' + string
-    end
+    path = case
+           when string.empty? then state.pwd + '/'
+           when string.start_with?('/') then string
+           else state.pwd + '/' + string
+           end
 
     strip_filename(collapse(path))
   end
@@ -51,15 +45,12 @@ module Complete
   # Return an +Array+ of potential remote tab-completions for a +String+.
   def self.remote(string, state)
     dir = remote_search_path(string, state)
-    name = string.end_with?('/') ? '' : File.basename(string)
+    basename = basename(string)
 
-    basenames = state.contents(dir).map { |entry| File.basename(entry) }
-    matches = basenames.select do |entry|
-      entry.start_with?(name) && !/^\.{1,2}$/.match(entry)
-    end
+    entries = state.contents(dir).map { |entry| File.basename(entry) }
+    matches = entries.select { |entry| match?(basename, entry) }
     matches.map do |entry|
-      entry << (state.directory?(dir + '/' + entry) ? '/' : ' ')
-      string + entry[name.length, entry.length]
+      final_match(string, entry, state.directory?(dir + '/' + entry))
     end
   end
 
@@ -71,13 +62,22 @@ module Complete
 
   private
 
+  def self.basename(string)
+    string.end_with?('/') ? '' : File.basename(string)
+  end
+
+  def self.match?(prefix, candidate)
+    candidate.start_with?(prefix) && !/^\.\.?$/.match(candidate)
+  end
+
+  def self.final_match(string, candidate, is_dir)
+    string + candidate.partition(basename(string))[2] + (is_dir ? '/' : ' ')
+  end
+
   # Return the name of the directory indicated by a path.
   def self.strip_filename(path)
-    if path != '/'
-      path.end_with?('/') ? path.sub(/\/$/, '') : File.dirname(path)
-    else
-      path
-    end
+    return path if path == '/'
+    path.end_with?('/') ? path.sub(/\/$/, '') : File.dirname(path)
   end
 
   # Return a version of a path with .. and . resolved to appropriate

@@ -59,8 +59,9 @@ describe State do
 
   describe 'when forgetting directory contents' do
     before do
-      ['/', '/dir'].each { |dir| state.cache[dir] = { 'contents' => nil } }
-      2.times { |i| state.cache["/dir/file#{i}"] = {} }
+      state.cache.add('path' => '/', 'contents' => [], 'is_dir' => true)
+      state.cache.add('path' => '/dir', 'contents' => [], 'is_dir' => true)
+      2.times { |i| state.cache.add('path' => "/dir/file#{i}") }
     end
 
     it 'must yield an error for a bogus path' do

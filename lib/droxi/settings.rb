@@ -14,10 +14,9 @@ module Settings
 
   # Set the value of a setting.
   def self.[]=(key, value)
-    if value != settings[key]
-      self.dirty = true
-      settings[key] = value
-    end
+    return value if value == settings[key]
+    self.dirty = true
+    settings[key] = value
   end
 
   # Return +true+ if the setting exists, +false+ otherwise.
@@ -27,22 +26,20 @@ module Settings
 
   # Delete the setting and return its value.
   def self.delete(key)
-    if settings.include?(key)
-      self.dirty = true
-      settings.delete(key)
-    end
+    return unless settings.include?(key)
+    self.dirty = true
+    settings.delete(key)
   end
 
   # Write settings to disk.
   def self.save
-    if dirty
-      self.dirty = false
-      require 'fileutils'
-      FileUtils.mkdir_p(File.dirname(config_file_path))
-      File.open(config_file_path, 'w') do |file|
-        settings.each_pair { |k, v| file.write("#{k}=#{v}\n") }
-        file.chmod(0600)
-      end
+    return unless dirty
+    self.dirty = false
+    require 'fileutils'
+    FileUtils.mkdir_p(File.dirname(config_file_path))
+    File.open(config_file_path, 'w') do |file|
+      settings.each_pair { |k, v| file.write("#{k}=#{v}\n") }
+      file.chmod(0600)
     end
     nil
   end
@@ -50,12 +47,9 @@ module Settings
   # Read and parse the rc file.
   def self.read
     self.dirty = false
-    if File.exist?(config_file_path)
-      File.open(config_file_path) do |file|
-        file.each_line.reduce({}) { |a, e| a.merge(parse(e.strip)) }
-      end
-    else
-      {}
+    return {} unless File.exist?(config_file_path)
+    File.open(config_file_path) do |file|
+      file.each_line.reduce({}) { |a, e| a.merge(parse(e.strip)) }
     end
   end
 
@@ -80,16 +74,10 @@ module Settings
   # Parse a line of the rc file and return a +Hash+ containing the resulting
   # setting data.
   def self.parse(line)
-    if /^(.+?)=(.+)$/ =~ line
-      key, value = Regexp.last_match[1].to_sym, Regexp.last_match[2]
-      if [:access_token, :oldpwd].include?(key)
-        { key => value }
-      else
-        warn_invalid(line)
-      end
-    else
-      warn_invalid(line)
-    end
+    return warn_invalid(line) unless /^(.+?)=(.+)$/ =~ line
+    key, value = Regexp.last_match[1].to_sym, Regexp.last_match[2]
+    return warn_invalid(line) unless [:access_token, :oldpwd].include?(key)
+    { key => value }
   end
 
   self.settings = read

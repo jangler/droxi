@@ -10,6 +10,11 @@ class Cache < Hash
   # +Cache+.
   def add(metadata)
     store(metadata['path'], metadata)
+    dirname = File.dirname(metadata['path'])
+    if dirname != metadata['path']
+      contents = fetch(dirname, {}).fetch('contents', nil)
+      contents << metadata if contents && !contents.include?(metadata)
+    end
     return self unless metadata.include?('contents')
     metadata['contents'].each { |content| add(content) }
     self
@@ -37,7 +42,7 @@ class Cache < Hash
   # Recursively remove a path and its sub-files and directories.
   def recursive_remove(path)
     if fetch(path, {}).include?('contents')
-      fetch(path)['contents'].each { |item| remove(item['path']) }
+      fetch(path)['contents'].each { |item| recursive_remove(item['path']) }
     end
 
     delete(path)
@@ -118,8 +123,7 @@ class State
     nil while path.sub!('./', '')
     path.sub!(/\/\.$/, '')
     path.chomp!('/')
-    path = '/' if path.empty?
-    path
+    path.empty? ? '/' : path
   end
 
   # Expand an +Array+ of file globs into an an +Array+ of Dropbox file paths
@@ -139,13 +143,11 @@ class State
   # (error) output if a block is given.
   def forget_contents(partial_path)
     path = resolve_path(partial_path)
-    if @cache.include?(path) && @cache[path].include?('contents')
+    if @cache.fetch(path, {}).include?('contents')
+      @cache[path]['contents'].dup.each { |m| @cache.remove(m['path']) }
       @cache[path].delete('contents')
-      @cache.keys.each do |key|
-        @cache.delete(key) if key.start_with?(path) && key != path
-      end
     elsif block_given?
-      yield "forget: #{partial_path}: Nothing to forget"
+      yield "forget: #{partial_path}: nothing to forget"
     end
   end
 
@@ -156,11 +158,7 @@ class State
   def fetch_metadata(path)
     data = @client.metadata(path)
     return true if data['is_deleted']
-    @cache[path] = data
-    return true unless data.include?('contents')
-    data['contents'].each do |datum|
-      @cache[datum['path']] = datum
-    end
+    @cache.add(data)
     true
   rescue DropboxError
     false
@@ -171,13 +169,9 @@ class State
   def get_matches(pattern, path, preserve_root)
     dir = File.dirname(path)
     matches = contents(dir).select { |entry| File.fnmatch(path, entry) }
-    if matches.empty?
-      GlobError.new(pattern)
-    elsif preserve_root
-      prefix = pattern.rpartition('/')[0, 2].join
-      matches.map { |match| prefix + match.rpartition('/')[2] }
-    else
-      matches
-    end
+    return GlobError.new(pattern) if matches.empty?
+    return matches unless preserve_root
+    prefix = pattern.rpartition('/')[0, 2].join
+    matches.map { |match| prefix + match.rpartition('/')[2] }
   end
 end
