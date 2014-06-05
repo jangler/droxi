@@ -115,6 +115,32 @@ describe Commands do
     end
   end
 
+  describe 'when executing the debug command' do
+    it 'must fail with an error message if debug mode is not enabled' do
+      ARGV.clear
+      TestUtils.output_of(Commands::DEBUG, :exec, client, state, '1')
+        .must_equal(['Debug not enabled.'])
+    end
+
+    it 'must evaluate the string if debug mode is enabled' do
+      ARGV << '--debug'
+      TestUtils.output_of(Commands::DEBUG, :exec, client, state, '1')
+        .must_equal(['1'])
+    end
+
+    it 'must print the resulting exception if given exceptional input' do
+      ARGV << '--debug'
+      lines = TestUtils.output_of(Commands::DEBUG, :exec, client, state, 'x')
+      lines.length.must_equal 1
+      lines[0].must_match(/^#<.+>$/)
+    end
+
+    it 'must fail with UsageError when given no args' do
+      proc { Commands::DEBUG.exec(client, state) }
+        .must_raise Commands::UsageError
+    end
+  end
+
   describe 'when executing the forget command' do
     it 'must clear entire cache when given no arguments' do
       Commands::LS.exec(client, state, '/')

@@ -1,2 +1,2 @@
 require_relative '../lib/droxi'
-Droxi.run(*ARGV)
+Droxi.run(*(ARGV.reject { |arg| arg == '--debug' }))

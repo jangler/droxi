@@ -20,6 +20,11 @@ task :run do
   sh 'ruby bin/droxi'
 end
 
+desc 'run program in debug mode'
+task :debug do
+  sh 'ruby bin/droxi --debug'
+end
+
 desc 'install gem'
 task :gem do
   sh 'rm -f droxi-*.gem'

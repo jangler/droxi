@@ -108,6 +108,26 @@ module Commands
     end
   )
 
+  # Execute arbitrary code.
+  DEBUG = Command.new(
+    'debug STRING...',
+    "Evaluates the given string as Ruby code and prints the result. Won't \
+     work unless the program was invoked with the --debug flag.",
+    # rubocop:disable Lint/UnusedBlockArgument, Lint/Eval
+    lambda do |client, state, args, output|
+      if ARGV.include?('--debug')
+        begin
+          output.call(eval(args.join(' ')).inspect)
+          # rubocop:enable Lint/UnusedBlockArgument, Lint/Eval
+        rescue => error
+          output.call(error.inspect)
+        end
+      else
+        output.call('Debug not enabled.')
+      end
+    end
+  )
+
   # Terminate the session.
   EXIT = Command.new(
     'exit',
