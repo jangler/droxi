@@ -34,12 +34,9 @@ module Commands
     # given. Raises a +UsageError+ if an invalid number of command-line
     # arguments is given.
     def exec(client, state, *args)
-      if num_args_ok?(args.length)
-        block = proc { |line| yield line if block_given? }
-        @procedure.yield(client, state, args, block)
-      else
-        fail UsageError, @usage
-      end
+      fail UsageError, @usage unless num_args_ok?(args.length)
+      block = proc { |line| yield line if block_given? }
+      @procedure.yield(client, state, args, block)
     end
 
     # Return a +String+ describing the type of argument at the given index.
@@ -47,12 +44,9 @@ module Commands
     # the +Command+ takes no arguments, return +nil+.
     def type_of_arg(index)
       args = @usage.split.drop(1).reject { |arg| arg.include?('-') }
-      if args.empty?
-        nil
-      else
-        index = [index, args.length - 1].min
-        args[index].tr('[].', '')
-      end
+      return nil if args.empty?
+      index = [index, args.length - 1].min
+      args[index].tr('[].', '')
     end
 
     private
@@ -62,13 +56,11 @@ module Commands
     def num_args_ok?(num_args)
       args = @usage.split.drop(1)
       min_args = args.reject { |arg| arg.start_with?('[') }.length
-      if args.empty?
-        max_args = 0
-      elsif args.any? { |arg| arg.end_with?('...') }
-        max_args = num_args
-      else
-        max_args = args.length
-      end
+      max_args = if args.any? { |arg| arg.end_with?('...') }
+                   num_args
+                 else
+                   args.length
+                 end
       (min_args..max_args).include?(num_args)
     end
   end
@@ -81,16 +73,15 @@ module Commands
      that directory. With - as the argument, changes to the previous working \
      directory.",
     lambda do |_client, state, args, output|
-      if args.empty?
-        state.pwd = '/'
-      elsif args[0] == '-'
-        state.pwd = state.oldpwd
+      case
+      when args.empty? then state.pwd = '/'
+      when args[0] == '-' then state.pwd = state.oldpwd
       else
         path = state.resolve_path(args[0])
         if state.directory?(path)
           state.pwd = path
         else
-          output.call('Not a directory')
+          output.call("cd: #{args[0]}: no such directory")
         end
       end
     end
@@ -166,10 +157,9 @@ module Commands
         else
           try_and_handle(DropboxError, output) do
             contents = client.get_file(path)
-            File.open(File.basename(path), 'wb') do |file|
-              file.write(contents)
-            end
-            output.call("#{File.basename(path)} <- #{path}")
+            basename = File.basename(path)
+            File.open(basename, 'wb') { |file| file.write(contents) }
+            output.call("#{basename} <- #{path}")
           end
         end
       end
@@ -205,10 +195,9 @@ module Commands
      that directory. With - as the argument, changes to the previous working \
      directory.",
     lambda do |_client, state, args, output|
-      path = if args.empty?
-               File.expand_path('~')
-             elsif args[0] == '-'
-               state.local_oldpwd
+      path = case
+             when args.empty? then File.expand_path('~')
+             when args[0] == '-' then state.local_oldpwd
              else
                begin
                  File.expand_path(args[0])
@@ -291,7 +280,8 @@ module Commands
       args.each do |arg|
         try_and_handle(DropboxError, output) do
           path = state.resolve_path(arg)
-          state.cache[path] = client.file_create_folder(path)
+          metadata = client.file_create_folder(path)
+          state.cache.add(metadata)
         end
       end
     end
@@ -318,11 +308,7 @@ module Commands
      remote working directory.",
     lambda do |client, state, args, output|
       from_path = args[0]
-      if args.length == 2
-        to_path = args[1]
-      else
-        to_path = File.basename(from_path)
-      end
+      to_path = (args.length == 2) ? args[1] : File.basename(from_path)
       to_path = state.resolve_path(to_path)
 
       try_and_handle(Exception, output) do

@@ -39,23 +39,17 @@ describe Commands do
       state.pwd.must_equal '/'
     end
 
-    it 'must change to the previous directory when given -' do
-      state.pwd = '/testing'
-      state.pwd = '/'
-      Commands::CD.exec(client, state, '-')
-      state.pwd.must_equal '/testing'
-    end
-
     it 'must change to the stated directory when given 1 arg' do
       state.pwd = '/'
       Commands::CD.exec(client, state, '/testing')
       state.pwd.must_equal '/testing'
     end
 
-    it 'must set previous directory correctly' do
+    it 'must change and set previous directory correctly' do
       state.pwd = '/testing'
       state.pwd = '/'
-      Commands::CD.exec(client, state, '/testing')
+      Commands::CD.exec(client, state, '-')
+      state.pwd.must_equal '/testing'
       state.oldpwd.must_equal '/'
     end
 
