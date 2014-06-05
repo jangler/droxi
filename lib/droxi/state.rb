@@ -17,11 +17,7 @@ class Cache < Hash
 
   # Remove a path from the +Cache+ and return the +Cache+.
   def remove(path)
-    if fetch(path, {}).include?('contents')
-      fetch(path)['contents'].each { |item| remove(item['path']) }
-    end
-
-    delete(path)
+    recursive_remove(path)
 
     dir = File.dirname(path)
     return self unless fetch(dir, {}).include?('contents')
@@ -34,6 +30,17 @@ class Cache < Hash
   def full_info?(path, require_contents = true)
     info = fetch(path, nil)
     info && (!require_contents || !info['is_dir'] || info.include?('contents'))
+  end
+
+  private
+
+  # Recursively remove a path and its sub-files and directories.
+  def recursive_remove(path)
+    if fetch(path, {}).include?('contents')
+      fetch(path)['contents'].each { |item| remove(item['path']) }
+    end
+
+    delete(path)
   end
 end
 

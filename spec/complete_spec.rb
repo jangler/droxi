@@ -1,6 +1,7 @@
 require 'dropbox_sdk'
 require 'minitest/autorun'
 
+require_relative 'testutils'
 require_relative '../lib/droxi/commands'
 require_relative '../lib/droxi/complete'
 require_relative '../lib/droxi/settings'
@@ -106,11 +107,7 @@ describe Complete do
 
   describe 'when resolving a remote search path' do
     client = DropboxClient.new(Settings[:access_token])
-    begin
-      client.file_create_folder('/testing')
-    rescue DropboxError
-      nil
-    end
+    TestUtils.ignore(DropboxError) { client.file_create_folder('/testing') }
     state = State.new(client)
     state.pwd = '/testing'
 

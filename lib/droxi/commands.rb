@@ -445,10 +445,10 @@ module Commands
 
   # Return an +Array+ of paths from an +Array+ of globs, passing error messages
   # to the output +Proc+ for non-matches.
-  def self.expand(state, paths, preserve_root, output, cmd_name)
+  def self.expand(state, paths, preserve_root, output, cmd)
     state.expand_patterns(paths, preserve_root).map do |item|
       if item.is_a?(GlobError)
-        output.call("#{cmd_name}: #{item}: no such file or directory")
+        output.call("#{cmd}: #{item}: no such file or directory") if output
         nil
       else
         item
@@ -483,7 +483,7 @@ module Commands
 
   # Copies or moves files into a directory.
   def self.cp_mv_to_dir(args, client, state, cmd, output)
-    sources = expand(state, args.take(args.length - 1), true, output, cmd)
+    sources = expand(state, args.take(args.length - 1), true, nil, cmd)
     method = (cmd == 'cp') ? :file_copy : :file_move
     if state.metadata(state.resolve_path(args.last))
       sources.each do |source|
@@ -498,6 +498,6 @@ module Commands
   # If the remote working directory does not exist, move up the directory
   # tree until at a real location.
   def self.check_pwd(state)
-    state.pwd = File.dirname(state.pwd) until state.metadata(state.pwd)
+    (state.pwd = File.dirname(state.pwd)) until state.metadata(state.pwd)
   end
 end

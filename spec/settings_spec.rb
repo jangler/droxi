@@ -17,7 +17,7 @@ describe Settings do
   describe 'when attempting access with a bogus key' do
     it 'must return nil' do
       Settings.delete(KEY)
-      Settings[KEY].must_equal nil
+      Settings[KEY].must_be_nil
     end
   end
 
@@ -25,6 +25,7 @@ describe Settings do
     it 'must return the associated value' do
       Settings[KEY] = VALUE
       Settings[KEY].must_equal VALUE
+      Settings.delete(KEY)
     end
   end
 
@@ -39,7 +40,7 @@ describe Settings do
   describe 'when deleting a bogus key' do
     it 'must return nil' do
       Settings.delete(KEY)
-      Settings.delete(KEY).must_equal nil
+      Settings.delete(KEY).must_be_nil
     end
   end
 
@@ -47,7 +48,7 @@ describe Settings do
     it 'must delete the key and return the associated value' do
       Settings[KEY] = VALUE
       Settings.delete(KEY).must_equal VALUE
-      Settings[KEY].must_equal nil
+      Settings[KEY].must_be_nil
     end
   end
 
@@ -55,6 +56,7 @@ describe Settings do
     it 'must return true for valid keys' do
       Settings[KEY] = VALUE
       Settings.include?(KEY).must_equal true
+      Settings.delete(KEY)
     end
 
     it 'must return false for bogus keys' do
