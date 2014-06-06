@@ -3,9 +3,10 @@ class Cache < Hash
   # Add a metadata +Hash+ and its contents to the +Cache+ and return the
   # +Cache+.
   def add(metadata)
-    store(metadata['path'], metadata)
-    dirname = File.dirname(metadata['path'])
-    if dirname != metadata['path']
+    path = metadata['path']
+    store(path, metadata)
+    dirname = File.dirname(path)
+    if dirname != path
       contents = fetch(dirname, {}).fetch('contents', nil)
       contents << metadata if contents && !contents.include?(metadata)
     end
@@ -14,14 +15,11 @@ class Cache < Hash
     self
   end
 
-  # Remove a path from the +Cache+ and return the +Cache+.
+  # Remove a path's metadata from the +Cache+ and return the +Cache+.
   def remove(path)
     recursive_remove(path)
-
-    dir = File.dirname(path)
-    return self unless fetch(dir, {}).include?('contents')
-    fetch(dir)['contents'].delete_if { |item| item['path'] == path }
-
+    contents = fetch(File.dirname(path), {}).fetch('contents', nil)
+    contents.delete_if { |item| item['path'] == path } if contents
     self
   end
 
@@ -35,10 +33,8 @@ class Cache < Hash
 
   # Recursively remove a path and its sub-files and directories.
   def recursive_remove(path)
-    if fetch(path, {}).include?('contents')
-      fetch(path)['contents'].each { |item| recursive_remove(item['path']) }
-    end
-
+    contents = fetch(path, {}).fetch('contents', nil)
+    contents.each { |item| recursive_remove(item['path']) } if contents
     delete(path)
   end
 end

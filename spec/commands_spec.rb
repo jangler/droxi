@@ -112,8 +112,9 @@ describe Commands do
   describe 'when executing the debug command' do
     it 'must fail with an error message if debug mode is not enabled' do
       ARGV.clear
-      TestUtils.output_of(Commands::DEBUG, :exec, client, state, '1')
-        .must_equal(['Debug not enabled.'])
+      lines = TestUtils.output_of(Commands::DEBUG, :exec, client, state, '1')
+      lines.size.must_equal 1
+      lines.first.start_with?('debug: ').must_equal true
     end
 
     it 'must evaluate the string if debug mode is enabled' do

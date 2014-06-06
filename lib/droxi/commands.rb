@@ -113,7 +113,7 @@ module Commands
           output.call(error.inspect)
         end
       else
-        output.call('Debug not enabled.')
+        output.call('debug: not enabled.')
       end
     end
   )

@@ -32,14 +32,10 @@ module Droxi
     args.map { |arg| arg.gsub(' ', '\ ') }.join(' ')
   end
 
-  def self.cmd_split(string)
-    string.split
-  end
-
   # Attempt to authorize the user for app usage.
   def self.authorize
     app_key = '5sufyfrvtro9zp7'
-    app_secret = 'h99ihzv86jyypho'
+    app_secret = 'h99ihzv86jyypho' # Not so secret, is it?
 
     flow = DropboxOAuth2FlowNoRedirect.new(app_key, app_secret)
 
@@ -73,7 +69,7 @@ module Droxi
     init_readline(state)
     with_interrupt_handling { do_interaction_loop(client, state, info) }
 
-    # Set pwd before exiting so that the oldpwd setting is saved to pwd.
+    # Set pwd before exiting so that the oldpwd setting is saved to the pwd.
     state.pwd = '/'
   end
 
@@ -109,10 +105,8 @@ module Droxi
   end
 
   def self.get_auth_code(url)
-    puts '1. Go to: ' + url
-    puts '2. Click "Allow" (you might have to log in first)'
-    puts '3. Copy the authorization code'
-    print '4. Enter the authorization code here: '
+    puts 'Authorize this app to access your Dropbox at: ' + url
+    print 'Enter authorization code: '
     code = $stdin.gets
     code ? code.strip! : exit
   end
