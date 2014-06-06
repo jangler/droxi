@@ -67,7 +67,9 @@ describe Commands do
   describe 'when executing the cp command' do
     before do
       state.pwd = TestUtils::TEST_ROOT
-      @copy = proc { |*args| Commands::CP.exec(client, state, *args) }
+      @copy = proc do |*args|
+        capture_io { Commands::CP.exec(client, state, *args) }
+      end
     end
 
     it 'must copy source to dest when given 2 args and last arg is non-dir' do
@@ -102,21 +104,21 @@ describe Commands do
     end
 
     it 'must give an error message if trying to copy a bogus file' do
-      _, err = capture_io { @copy.call('bogus', '/testing') }
+      _, err = @copy.call('bogus', '/testing')
       err.lines.size.must_equal 1
       err.start_with?('cp: ').must_equal true
     end
 
     it 'must fail to overwrite file without -f flag' do
       TestUtils.structure(client, state, 'source.txt', 'dest.txt')
-      _, err = capture_io { @copy.call('source.txt', 'dest.txt') }
+      _, err = @copy.call('source.txt', 'dest.txt')
       err.lines.size.must_equal 1
     end
 
     it 'must also cp normally with -f flag' do
       TestUtils.structure(client, state, 'source.txt')
       TestUtils.not_structure(client, state, 'dest.txt')
-      _, err = capture_io { @copy.call('-f', 'source.txt', 'dest.txt') }
+      _, err = @copy.call('-f', 'source.txt', 'dest.txt')
       err.must_be :empty?
     end
   end
@@ -302,7 +304,9 @@ describe Commands do
   describe 'when executing the mv command' do
     before do
       state.pwd = TestUtils::TEST_ROOT
-      @move = proc { |*args| Commands::MV.exec(client, state, *args) }
+      @move = proc do |*args|
+        capture_io { Commands::MV.exec(client, state, *args) }
+      end
     end
 
     it 'must move source to dest when given 2 args and last arg is non-dir' do
@@ -338,20 +342,20 @@ describe Commands do
     end
 
     it 'must give an error message if trying to move a bogus file' do
-      _, err = capture_io { @move.call('bogus1', 'bogus2', 'bogus3') }
+      _, err = @move.call('bogus1', 'bogus2', 'bogus3')
       err.lines.size.must_equal 3
       err.lines.all? { |line| line.start_with?('mv: ') }.must_equal true
     end
 
     it 'must fail to overwrite file without -f flag' do
       TestUtils.structure(client, state, 'source.txt', 'dest.txt')
-      _, err = capture_io { @move.call('source.txt', 'dest.txt') }
+      _, err = @move.call('source.txt', 'dest.txt')
       err.lines.size.must_equal 1
     end
 
     it 'must overwrite with -f flag' do
       TestUtils.structure(client, state, 'source.txt', 'dest.txt')
-      _, err = capture_io { @move.call('-f', 'source.txt', 'dest.txt') }
+      _, err = @move.call('-f', 'source.txt', 'dest.txt')
       err.must_be :empty?
       state.metadata('/testing/source.txt').must_be_nil
     end

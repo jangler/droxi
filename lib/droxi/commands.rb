@@ -297,7 +297,7 @@ module Commands
 
   # Move/rename remote files.
   MV = Command.new(
-    'mv REMOTE_FILE... REMOTE_FILE',
+    'mv [-f] REMOTE_FILE... REMOTE_FILE',
     "When given two arguments, moves the remote file or folder at the first \
      path to the second path. When given more than two arguments or when the \
      final argument is a directory, moves each remote file or folder into \
@@ -555,7 +555,7 @@ module Commands
   # removed flags. Prints warnings if the flags are not in the given +String+
   # of valid flags (e.g. '-rf').
   def self.extract_flags(cmd, args, valid_flags)
-    tokens = args.take_while { |s| s[/-\w+/] }
+    tokens = args.take_while { |s| s[/^-\w+$/] }
     args.shift(tokens.size)
 
     # Process compound flags like -rf into -r, -f.
