@@ -1,16 +1,58 @@
+require_relative 'commands'
+require_relative 'text'
+
 # Module containing tab-completion logic and methods.
 module Complete
+  # Return an +Array+ of completion options for the given input line and
+  # client state.
+  def self.complete(line, state)
+    tokens = Text.tokenize(line, include_empty: true)
+    type = completion_type(tokens)
+    completion_options(type, tokens.last, state).map do |option|
+      option.gsub(' ', '\ ').sub(/\\ $/, ' ')
+        .split.drop(tokens.last.count(' ')).join(' ')
+        .sub(/[^\\\/]$/, '\0 ')
+    end
+  end
+
+  private
+
+  # Return an +Array+ of potential tab-completion options for a given
+  # completion type, word, and client state.
+  def self.completion_options(type, word, state)
+    case type
+    when 'COMMAND'     then command(word, Commands::NAMES)
+    when 'LOCAL_FILE'  then local(word)
+    when 'LOCAL_DIR'   then local_dir(word)
+    when 'REMOTE_FILE' then remote(word, state)
+    when 'REMOTE_DIR'  then remote_dir(word, state)
+    else []
+    end
+  end
+
+  # Return a +String+ representing the type of tab-completion that should be
+  # performed, given the current line buffer state.
+  def self.completion_type(tokens)
+    index = tokens.size
+    if index <= 1
+      'COMMAND'
+    elsif Commands::NAMES.include?(tokens.first)
+      cmd = Commands.const_get(tokens.first.upcase.to_sym)
+      cmd.type_of_arg(index - 2)
+    end
+  end
+
   # Return an +Array+ of potential command name tab-completions for a +String+.
   def self.command(string, names)
     names.select { |n| n.start_with?(string) }.map { |n| n + ' ' }
   end
 
   # Return the directory in which to search for potential local tab-completions
-  # for a +String+. Defaults to working directory in case of bogus input.
+  # for a +String+.
   def self.local_search_path(string)
     File.expand_path(strip_filename(string))
   rescue ArgumentError
-    Dir.pwd
+    string
   end
 
   # Return an +Array+ of potential local tab-completions for a +String+.
@@ -18,9 +60,13 @@ module Complete
     dir = local_search_path(string)
     basename = basename(string)
 
-    matches = Dir.entries(dir).select { |entry| match?(basename, entry) }
-    matches.map do |entry|
-      final_match(string, entry, File.directory?(dir + '/' + entry))
+    begin
+      matches = Dir.entries(dir).select { |entry| match?(basename, entry) }
+      matches.map do |entry|
+        final_match(string, entry, File.directory?(dir + '/' + entry))
+      end
+    rescue Errno::ENOENT
+      []
     end
   end
 
@@ -59,8 +105,6 @@ module Complete
   def self.remote_dir(string, state)
     remote(string, state).select { |result| result.end_with?('/') }
   end
-
-  private
 
   def self.basename(string)
     string.end_with?('/') ? '' : File.basename(string)

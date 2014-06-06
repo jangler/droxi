@@ -32,6 +32,10 @@ module Droxi
     args.map { |arg| arg.gsub(' ', '\ ') }.join(' ')
   end
 
+  def self.cmd_split(string)
+    string.split
+  end
+
   # Attempt to authorize the user for app usage.
   def self.authorize
     app_key = '5sufyfrvtro9zp7'
@@ -73,45 +77,18 @@ module Droxi
     state.pwd = '/'
   end
 
-  # Return an +Array+ of potential tab-completion options for a given
-  # completion type, word, and client state.
-  def self.completion_options(type, word, state)
-    case type
-    when 'COMMAND'     then Complete.command(word, Commands::NAMES)
-    when 'LOCAL_FILE'  then Complete.local(word)
-    when 'LOCAL_DIR'   then Complete.local_dir(word)
-    when 'REMOTE_FILE' then Complete.remote(word, state)
-    when 'REMOTE_DIR'  then Complete.remote_dir(word, state)
-    else []
-    end
-  end
-
-  # Return a +String+ representing the type of tab-completion that should be
-  # performed, given the current line buffer state.
-  def self.completion_type
-    words = Readline.line_buffer.split
-    index = words.size
-    index += 1 if Readline.line_buffer.end_with?(' ')
-    if index <= 1
-      'COMMAND'
-    elsif Commands::NAMES.include?(words.first)
-      cmd = Commands.const_get(words.first.upcase.to_sym)
-      cmd.type_of_arg(index - 2)
-    end
-  end
-
   def self.init_readline(state)
-    Readline.completion_proc = proc do |word|
-      completion_options(completion_type, word, state).map do |option|
-        option.gsub(' ', '\ ').sub(/\\ $/, ' ')
-      end
+    Readline.completion_proc = proc do
+      Complete.complete(Readline.line_buffer, state)
     end
 
-    begin
-      Readline.completion_append_character = nil
-    rescue NotImplementedError
-      nil
-    end
+    ignore_not_yet_implemented { Readline.completion_append_character = nil }
+  end
+
+  def self.ignore_not_yet_implemented
+    yield
+  rescue NotImplementedError
+    nil
   end
 
   def self.with_interrupt_handling

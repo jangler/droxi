@@ -374,7 +374,7 @@ module Commands
     if input.start_with?('!')
       shell(input[1, input.size - 1]) { |line| puts line }
     elsif !input.empty?
-      tokens = tokenize(input)
+      tokens = Text.tokenize(input)
       cmd, args = tokens.first, tokens.drop(1)
       try_command(cmd, args, client, state)
     end
@@ -402,18 +402,6 @@ module Commands
       end
     else
       puts "droxi: #{command_name}: command not found"
-    end
-  end
-
-  # Split a +String+ into tokens, allowing for backslash-escaped spaces, and
-  # return the resulting +Array+.
-  def self.tokenize(string)
-    string.split.reduce([]) do |list, token|
-      list << if !list.empty? && list.last.end_with?('\\')
-                "#{list.pop.chop} #{token}"
-              else
-                token
-              end
     end
   end
 

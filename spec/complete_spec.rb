@@ -1,175 +1,123 @@
-require 'dropbox_sdk'
 require 'minitest/autorun'
 
 require_relative 'testutils'
 require_relative '../lib/droxi/commands'
 require_relative '../lib/droxi/complete'
-require_relative '../lib/droxi/settings'
-require_relative '../lib/droxi/state'
 
 describe Complete do
   CHARACTERS = ('a'..'z').to_a + ('A'..'Z').to_a + ('0'..'9').to_a
+
+  _, state = TestUtils.create_client_and_state
 
   def random_string(length)
     rand(length).times.map { CHARACTERS.sample }.join
   end
 
-  describe 'when resolving a local search path' do
-    it 'must resolve unqualified string to working directory' do
-      Complete.local_search_path('').must_equal Dir.pwd
-      Complete.local_search_path('f').must_equal Dir.pwd
-    end
-
-    it 'must resolve / to root directory' do
-      Complete.local_search_path('/').must_equal '/'
-      Complete.local_search_path('/f').must_equal '/'
-    end
-
-    it 'must resolve directory name to named directory' do
-      Complete.local_search_path('/home/').must_equal '/home'
-      Complete.local_search_path('/home/f').must_equal '/home'
-    end
-
-    it 'must resolve ~/ to home directory' do
-      Complete.local_search_path('~/').must_equal Dir.home
-      Complete.local_search_path('~/f').must_equal Dir.home
-    end
-
-    it 'must resolve ./ to working directory' do
-      Complete.local_search_path('./').must_equal Dir.pwd
-      Complete.local_search_path('./f').must_equal Dir.pwd
-    end
-
-    it 'must resolve ../ to parent directory' do
-      Complete.local_search_path('../').must_equal File.dirname(Dir.pwd)
-      Complete.local_search_path('../f').must_equal File.dirname(Dir.pwd)
-    end
-
-    it 'must resolve a bogus string to working directory' do
-      Complete.local_search_path('~bogus/bogus').must_equal Dir.pwd
+  def remote_contents(state, path)
+    state.contents(path).map do |entry|
+      entry += (state.directory?(entry) ? '/' : ' ')
+      entry[1, entry.size].gsub(' ', '\\ ').sub(/\\ $/, ' ')
     end
   end
 
-  describe 'when finding potential local tab completions' do
-    def check(path)
-      100.times.all? do
-        prefix = path + random_string(5)
-        Complete.local(prefix).all? { |match| match.start_with?(prefix) }
-      end.must_equal true
-      1000.times.any? do
-        prefix = path + random_string(5)
-        !Complete.local(prefix).empty?
-      end.must_equal true
+  def local_contents
+    files = Dir.entries(Dir.pwd).map do |entry|
+      entry << (File.directory?(entry) ? '/' : ' ')
     end
+    files.reject { |file| file[/^\.\.?\/$/] }
+  end
 
-    it 'seed must prefix results for unqualified string' do
-      check('')
-    end
-
-    it 'seed must prefix results for /' do
-      check('/')
-    end
-
-    it 'seed must prefix results for named directory' do
-      check('/home/')
-    end
-
-    it 'seed must prefix results for ~/' do
-      check('~/')
-    end
-
-    it 'seed must prefix results for ./' do
-      check('./')
-    end
-
-    it 'seed must prefix results for ../' do
-      check('../')
-    end
-
-    it "won't raise an exception on a bogus string" do
-      Complete.local('~bogus')
+  describe 'when given an empty string or whitespace' do
+    it 'lists all command names' do
+      names = Commands::NAMES.map { |n| "#{n} " }
+      Complete.complete('', state).must_equal names
+      Complete.complete('  ', state).must_equal names
     end
   end
 
-  describe 'when finding local directory tab completions' do
-    it 'must include all directories and only directories' do
-      entries = Dir.entries(Dir.pwd).select do |entry|
-        File.directory?(entry) && !entry[/^..?$/]
-      end
-      matches = Complete.local_dir('').map { |match| match.chomp('/') }
-      matches.sort.must_equal entries.sort
-    end
-
-    it 'must append a / to the end of options' do
-      Complete.local_dir('').all? { |option| option.end_with?('/') }
+  describe 'when given a letter' do
+    it 'lists all command names starting with that letter' do
+      letter = 'c'
+      names = Commands::NAMES.map { |n| "#{n} " }
+      matches = names.select { |n| n.start_with?(letter) }
+      Complete.complete(letter, state).sort.must_equal matches.sort
     end
   end
 
-  describe 'when resolving a remote search path' do
-    client = DropboxClient.new(Settings[:access_token])
-    TestUtils.ignore(DropboxError) { client.file_create_folder('/testing') }
-    state = State.new(client)
-    state.pwd = '/testing'
-
-    it 'must resolve unqualified string to working directory' do
-      Complete.remote_search_path('', state).must_equal state.pwd
-      Complete.remote_search_path('f', state).must_equal state.pwd
-    end
-
-    it 'must resolve / to root directory' do
-      Complete.remote_search_path('/', state).must_equal '/'
-      Complete.remote_search_path('/f', state).must_equal '/'
-    end
-
-    it 'must resolve directory name to named directory' do
-      Complete.remote_search_path('/testing/', state).must_equal '/testing'
-      Complete.remote_search_path('/testing/f', state).must_equal '/testing'
-    end
-
-    it 'must resolve ./ to working directory' do
-      Complete.remote_search_path('./', state).must_equal state.pwd
-      Complete.remote_search_path('./f', state).must_equal state.pwd
-    end
-
-    it 'must resolve ../ to parent directory' do
-      parent = File.dirname(state.pwd)
-      Complete.remote_search_path('../', state).must_equal parent
-      Complete.remote_search_path('../f', state).must_equal parent
+  describe 'when given a context for local files' do
+    it 'lists all local files except . and .. and end with correct char' do
+      Complete.complete('put ', state).sort.must_equal local_contents.sort
     end
   end
 
-  describe 'when finding remote tab completions' do
-    client = DropboxClient.new(Settings[:access_token])
-    state = State.new(client)
-    state.pwd = '/testing'
-    Commands::RM.exec(client, state, '/testing/*')
-    %w(/testing /testing/one /testing/two).each do |dir|
-      Commands::MKDIR.exec(client, state, dir) unless state.metadata(dir)
-    end
-    `echo hello > test.txt`
-    Commands::PUT.exec(client, state, 'test.txt')
-    `rm test.txt`
-
-    it 'must return only matches of which the string is a prefix' do
-      Complete.remote('t', state).must_equal ['two/', 'test.txt ']
-    end
-
-    it 'must return only directories if requested' do
-      Complete.remote_dir('', state).must_equal %w(one/ two/)
+  describe 'when given a context for local directories' do
+    it 'lists all local dirs except . and .. and end with correct char' do
+      dirs = local_contents.reject { |entry| entry.end_with?(' ') }
+      Complete.complete('lcd ', state).sort.must_equal dirs.sort
     end
   end
 
-  describe 'when resolving command names' do
-    before do
-      @words = %w(plank plague plonk lake lag lock)
+  describe 'when given local context and faulty path' do
+    it 'must return empty list' do
+      Complete.complete('put bogus/', state).must_equal [] # fictional
+      Complete.complete('put ~bogus/', state).must_equal [] # malformed
     end
+  end
 
-    it 'must return matches if and only if the string is a prefix' do
-      Complete.command('pla', @words).size.must_equal 2
+  describe 'when given an implicit context for remote files' do
+    it 'lists all remote files and end with correct char' do
+      state.pwd = '/'
+      entries = remote_contents(state, '/')
+      Complete.complete('put thing ', state).sort.must_equal entries.sort
     end
+  end
 
-    it 'must return matches that end with a space' do
-      Complete.command('plank', @words).must_equal ['plank ']
+  describe 'when given an explicit, absolute context for remote files' do
+    it 'lists all remote files in path and end with correct char' do
+      state.pwd = '/'
+
+      entries = remote_contents(state, '/testing').map { |e| "/#{e}" }
+      Complete.complete('ls /testing/', state).sort.must_equal entries.sort
+
+      entries.map! { |e| e.sub('/testing/', '/testing/../testing/./') }
+      Complete.complete('ls /testing/../testing/./', state).sort
+        .must_equal entries.sort
+    end
+  end
+
+  describe 'when given an explicit, relative context for remote files' do
+    it 'lists all remote files in path and end with correct char' do
+      state.pwd = '/'
+
+      entries = remote_contents(state, '/testing')
+      Complete.complete('ls testing/', state).sort.must_equal entries.sort
+
+      entries.map! { |e| e.sub('testing/', 'testing/../testing/./') }
+      Complete.complete('ls testing/../testing/./', state).sort
+        .must_equal entries.sort
+    end
+  end
+
+  describe 'when given a context for remote directories' do
+    it 'lists all remote dirs and end with correct char' do
+      state.pwd = '/'
+      dirs = remote_contents(state, '/').select { |e| e.end_with?('/') }
+      Complete.complete('cd ', state).sort.must_equal dirs.sort
+    end
+  end
+
+  describe 'when given name with spaces' do
+    it 'must continue to match correctly' do
+      `touch a\\ b\\ c`
+      matches = local_contents.select { |entry| entry.start_with?('a\\ ') }
+      Complete.complete('lcd a\\ ', state).sort.must_equal matches.sort
+      `rm a\\ b\\ c`
+    end
+  end
+
+  describe 'when given an unworkable context' do
+    it 'lists nothing' do
+      Complete.complete('debug ', state).must_equal []
     end
   end
 end

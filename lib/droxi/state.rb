@@ -72,12 +72,14 @@ class State
 
   # Expand a Dropbox file path and return the result.
   def resolve_path(arg)
+    # REVIEW: See if we can do this in fewer lines (e.g. without two gsub!s).
     path = arg.start_with?('/') ? arg.dup : "#{@pwd}/#{arg}"
     path.gsub!('//', '/')
     nil while path.sub!(%r{/([^/]+?)/\.\.}, '')
     nil while path.sub!('./', '')
     path.sub!(/\/\.$/, '')
     path.chomp!('/')
+    path.gsub!('//', '/')
     path.empty? ? '/' : path
   end
 

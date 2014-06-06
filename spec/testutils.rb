@@ -1,17 +1,14 @@
+require 'dropbox_sdk'
+
 require_relative '../lib/droxi/commands'
+require_relative '../lib/droxi/settings'
+require_relative '../lib/droxi/state'
 
 # Module of helper methods for testing.
 module TestUtils
   # The remote directory under which all test-related file manipulation should
   # take place.
   TEST_ROOT = '/testing'
-
-  # Run the attached block, rescuing the given +Exception+ class.
-  def self.ignore(error_class)
-    yield
-  rescue error_class
-    nil
-  end
 
   # Call the method on the reciever with the given args and return an +Array+
   # of lines of output from the method.
@@ -50,6 +47,12 @@ module TestUtils
     dead_paths = state.contents(TEST_ROOT).reject { |p| paths.include?(p) }
     return if dead_paths.empty?
     Commands::RM.exec(client, state, *dead_paths)
+  end
+
+  # Returns a new +DropboxClient+ and +State+.
+  def self.create_client_and_state
+    client = DropboxClient.new(Settings[:access_token])
+    [client, State.new(client)]
   end
 
   private

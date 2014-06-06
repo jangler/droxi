@@ -25,6 +25,20 @@ module Text
     lines
   end
 
+  # Split a +String+ into tokens, allowing for backslash-escaped spaces, and
+  # return the resulting +Array+.
+  def self.tokenize(string, include_empty: false)
+    tokens = string.split
+    tokens << '' if include_empty && (string.empty? || string.end_with?(' '))
+    tokens.reduce([]) do |list, token|
+      list << if !list.empty? && list.last.end_with?('\\')
+                "#{list.pop.chop} #{token}"
+              else
+                token
+              end
+    end
+  end
+
   private
 
   # Return the width of the terminal in columns.
