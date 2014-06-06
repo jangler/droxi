@@ -14,7 +14,6 @@ describe Commands do
 
   TEMP_FILENAME = 'test.txt'
   TEMP_FOLDER = 'test'
-  TEST_FOLDER = 'testing'
 
   before do
     Dir.chdir(original_dir)
@@ -67,13 +66,14 @@ describe Commands do
 
   describe 'when executing the cp command' do
     before do
-      state.pwd = '/testing'
+      state.pwd = TestUtils::TEST_ROOT
+      @copy = proc { |*args| Commands::CP.exec(client, state, *args) }
     end
 
     it 'must copy source to dest when given 2 args and last arg is non-dir' do
       TestUtils.structure(client, state, 'source')
       TestUtils.not_structure(client, state, 'dest')
-      Commands::CP.exec(client, state, 'source', 'dest')
+      @copy.call('source', 'dest')
       %w(source dest).all? do |dir|
         state.metadata("/testing/#{dir}")
       end.must_equal true
@@ -82,30 +82,42 @@ describe Commands do
     it 'must copy source into dest when given 2 args and last arg is dir' do
       TestUtils.structure(client, state, 'source', 'dest')
       TestUtils.not_structure(client, state, 'dest/source')
-      Commands::CP.exec(client, state, 'source', 'dest')
+      @copy.call('source', 'dest')
       state.metadata('/testing/dest/source').wont_be_nil
     end
 
     it 'must copy sources into dest when given 3 or more args' do
       TestUtils.structure(client, state, 'source1', 'source2', 'dest')
       TestUtils.not_structure(client, state, 'dest/source1', 'dest/source2')
-      Commands::CP.exec(client, state, 'source1', 'source2', 'dest')
+      @copy.call('source1', 'source2', 'dest')
       %w(source2 source2).all? do |dir|
         state.metadata("/testing/dest/#{dir}")
       end.must_equal true
     end
 
     it 'must fail with UsageError when given <2 args' do
-      test1 = proc { Commands::CP.exec(client, state) }
-      test2 = proc { Commands::CP.exec(client, state, 'a') }
+      test1 = proc { @copy.call }
+      test2 = proc { @copy.call('a') }
       [test1, test2].each { |test| test.must_raise Commands::UsageError }
     end
 
     it 'must give an error message if trying to copy a bogus file' do
-      lines = TestUtils.output_of(Commands::CP, :exec, client, state,
-                                  'bogus', '/testing')
-      lines.size.must_equal 1
-      lines.first.start_with?('cp: ').must_equal true
+      _, err = capture_io { @copy.call('bogus', '/testing') }
+      err.lines.size.must_equal 1
+      err.start_with?('cp: ').must_equal true
+    end
+
+    it 'must fail to overwrite file without -f flag' do
+      TestUtils.structure(client, state, 'source.txt', 'dest.txt')
+      _, err = capture_io { @copy.call('source.txt', 'dest.txt') }
+      err.lines.size.must_equal 1
+    end
+
+    it 'must also cp normally with -f flag' do
+      TestUtils.structure(client, state, 'source.txt')
+      TestUtils.not_structure(client, state, 'dest.txt')
+      _, err = capture_io { @copy.call('-f', 'source.txt', 'dest.txt') }
+      err.must_be :empty?
     end
   end
 
@@ -257,10 +269,9 @@ describe Commands do
     end
 
     it 'must fail with error when given directory path' do
-      lines = TestUtils.output_of(Commands::MEDIA, :exec, client, state,
-                                  '/testing')
-      lines.size.must_equal 1
-      %r{https://.+\..+/}.match(lines.first).must_be_nil
+      _, err = capture_io { Commands::MEDIA.exec(client, state, '/testing') }
+      err.lines.size.must_equal 1
+      %r{https://.+\..+/}.match(err).must_be_nil
     end
 
     it 'must fail with UsageError when given no args' do
@@ -290,13 +301,14 @@ describe Commands do
 
   describe 'when executing the mv command' do
     before do
-      state.pwd = '/testing'
+      state.pwd = TestUtils::TEST_ROOT
+      @move = proc { |*args| Commands::MV.exec(client, state, *args) }
     end
 
     it 'must move source to dest when given 2 args and last arg is non-dir' do
       TestUtils.structure(client, state, 'source')
       TestUtils.not_structure(client, state, 'dest')
-      Commands::MV.exec(client, state, 'source', 'dest')
+      @move.call('source', 'dest')
       state.metadata('/testing/source').must_be_nil
       state.metadata('/testing/dest').wont_be_nil
     end
@@ -304,7 +316,7 @@ describe Commands do
     it 'must move source into dest when given 2 args and last arg is dir' do
       TestUtils.structure(client, state, 'source', 'dest')
       TestUtils.not_structure(client, state, 'dest/source')
-      Commands::MV.exec(client, state, 'source', 'dest')
+      @move.call('source', 'dest')
       state.metadata('/testing/source').must_be_nil
       state.metadata('/testing/dest/source').wont_be_nil
     end
@@ -312,7 +324,7 @@ describe Commands do
     it 'must move sources into dest when given 3 or more args' do
       TestUtils.structure(client, state, 'source1', 'source2', 'dest')
       TestUtils.not_structure(client, state, 'dest/source1', 'dest/source2')
-      Commands::MV.exec(client, state, 'source1', 'source2', 'dest')
+      @move.call('source1', 'source2', 'dest')
       %w(source2 source2).all? do |dir|
         state.metadata("/testing/#{dir}").must_be_nil
         state.metadata("/testing/dest/#{dir}")
@@ -320,16 +332,28 @@ describe Commands do
     end
 
     it 'must fail with UsageError when given <2 args' do
-      test1 = proc { Commands::MV.exec(client, state) }
-      test2 = proc { Commands::MV.exec(client, state, 'a') }
+      test1 = proc { @move.call }
+      test2 = proc { @move.call('a') }
       [test1, test2].each { |test| test.must_raise Commands::UsageError }
     end
 
     it 'must give an error message if trying to move a bogus file' do
-      lines = TestUtils.output_of(Commands::MV, :exec, client, state,
-                                  'bogus1', 'bogus2', 'bogus3')
-      lines.size.must_equal 3
-      lines.all? { |line| line.start_with?('mv: ') }.must_equal true
+      _, err = capture_io { @move.call('bogus1', 'bogus2', 'bogus3') }
+      err.lines.size.must_equal 3
+      err.lines.all? { |line| line.start_with?('mv: ') }.must_equal true
+    end
+
+    it 'must fail to overwrite file without -f flag' do
+      TestUtils.structure(client, state, 'source.txt', 'dest.txt')
+      _, err = capture_io { @move.call('source.txt', 'dest.txt') }
+      err.lines.size.must_equal 1
+    end
+
+    it 'must overwrite with -f flag' do
+      TestUtils.structure(client, state, 'source.txt', 'dest.txt')
+      _, err = capture_io { @move.call('-f', 'source.txt', 'dest.txt') }
+      err.must_be :empty?
+      state.metadata('/testing/source.txt').must_be_nil
     end
   end
 
@@ -522,7 +546,7 @@ describe Commands do
 
     it 'must handle backslash-escaped spaces correctly' do
       TestUtils.structure(client, state, 'folder with spaces')
-      proc { Commands.exec('ls folder\ with\ spaces', client, state) }
+      proc { Commands.exec('ls /testing/folder\ with\ spaces', client, state) }
         .must_be_silent
     end
 

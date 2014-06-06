@@ -72,6 +72,7 @@ module Commands
      that directory. With - as the argument, changes to the previous working \
      directory.",
     lambda do |_client, state, args, output|
+      extract_flags('cd', args, '')
       case
       when args.empty? then state.pwd = '/'
       when args.first == '-' then state.pwd = state.oldpwd
@@ -88,13 +89,14 @@ module Commands
 
   # Copy remote files.
   CP = Command.new(
-    'cp REMOTE_FILE... REMOTE_FILE',
+    'cp [-f] REMOTE_FILE... REMOTE_FILE',
     "When given two arguments, copies the remote file or folder at the first \
      path to the second path. When given more than two arguments or when the \
      final argument is a directory, copies each remote file or folder into \
-     that directory.",
-    lambda do |client, state, args, output|
-      cp_mv(client, state, args, output, 'cp')
+     that directory. Will refuse to overwrite existing files unless invoked \
+     with the -f option.",
+    lambda do |client, state, args, _output|
+      cp_mv(client, state, args, 'cp')
     end
   )
 
@@ -122,7 +124,8 @@ module Commands
   EXIT = Command.new(
     'exit',
     'Exit the program.',
-    lambda do |_client, state, _args, _output|
+    lambda do |_client, state, args, _output|
+      extract_flags('exit', args, '')
       state.exit_requested = true
     end
   )
@@ -134,6 +137,7 @@ module Commands
      arguments, clear the entire cache. If given directories as arguments, \
      (recursively) clear the cache of those directories only.",
     lambda do |_client, state, args, output|
+      extract_flags('forget', args, '')
       if args.empty?
         state.cache.clear
       else
@@ -150,11 +154,12 @@ module Commands
     "Download each specified remote file to a file of the same name in the \
      local working directory.",
     lambda do |client, state, args, output|
+      extract_flags('get', args, '')
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           output.call("get: #{path}: no such file or directory")
         else
-          try_and_handle(DropboxError, output) do
+          try_and_handle(DropboxError) do
             contents = client.get_file(path)
             basename = File.basename(path)
             File.open(basename, 'wb') { |file| file.write(contents) }
@@ -171,6 +176,7 @@ module Commands
     "Print usage and help information about a command. If no command is \
      given, print a list of commands instead.",
     lambda do |_client, _state, args, output|
+      extract_flags('help', args, '')
       if args.empty?
         Text.table(NAMES).each { |line| output.call(line) }
       else
@@ -194,6 +200,7 @@ module Commands
      that directory. With - as the argument, changes to the previous working \
      directory.",
     lambda do |_client, state, args, output|
+      extract_flags('lcd', args, '')
       path = case
              when args.empty? then File.expand_path('~')
              when args.first == '-' then state.local_oldpwd
@@ -223,7 +230,7 @@ module Commands
      as arguments, list the files. If the -l option is given, display \
      information about the files.",
     lambda do |_client, state, args, output|
-      long = args.delete('-l')
+      long = extract_flags('ls', args, '-l').include?('-l')
 
       files, dirs = [], []
       state.expand_patterns(args, true).each do |path|
@@ -258,11 +265,12 @@ module Commands
     "Create Dropbox links to publicly share remote files. The links are \
      time-limited and link directly to the files themselves.",
     lambda do |client, state, args, output|
+      extract_flags('media', args, '')
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           output.call("media: #{path}: no such file or directory")
         else
-          try_and_handle(DropboxError, output) do
+          try_and_handle(DropboxError) do
             url = client.media(path)['url']
             output.call("#{File.basename(path)} -> #{url}")
           end
@@ -275,9 +283,10 @@ module Commands
   MKDIR = Command.new(
     'mkdir REMOTE_DIR...',
     'Create remote directories.',
-    lambda do |client, state, args, output|
+    lambda do |client, state, args, _output|
+      extract_flags('mkdir', args, '')
       args.each do |arg|
-        try_and_handle(DropboxError, output) do
+        try_and_handle(DropboxError) do
           path = state.resolve_path(arg)
           metadata = client.file_create_folder(path)
           state.cache.add(metadata)
@@ -292,9 +301,10 @@ module Commands
     "When given two arguments, moves the remote file or folder at the first \
      path to the second path. When given more than two arguments or when the \
      final argument is a directory, moves each remote file or folder into \
-     that directory.",
-    lambda do |client, state, args, output|
-      cp_mv(client, state, args, output, 'mv')
+     that directory. Will refuse to overwrite existing files unless invoked \
+     with the -f option.",
+    lambda do |client, state, args, _output|
+      cp_mv(client, state, args, 'mv')
     end
   )
 
@@ -307,12 +317,13 @@ module Commands
      given only a local file path, the remote path defaults to a file of the \
      same name in the remote working directory.",
     lambda do |client, state, args, output|
+      extract_flags('put', args, '')
       from_path = args.first
       to_path = (args.size == 2) ? args[1] : File.basename(from_path)
       to_path = state.resolve_path(to_path)
       to_path << "/#{from_path}" if state.directory?(to_path)
 
-      try_and_handle(Exception, output) do
+      try_and_handle(Exception) do
         File.open(File.expand_path(from_path), 'rb') do |file|
           data = client.put_file(to_path, file)
           state.cache.add(data)
@@ -328,7 +339,7 @@ module Commands
     "Remove each specified remote file. If the -r option is given, will \
      also remove directories recursively.",
     lambda do |client, state, args, output|
-      flags = extract_flags(args)
+      flags = extract_flags('rm', args, '-r')
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           output.call("rm: #{path}: no such file or directory")
@@ -337,7 +348,7 @@ module Commands
             output.call("rm: #{path}: is a directory")
             next
           end
-          try_and_handle(DropboxError, output) do
+          try_and_handle(DropboxError) do
             client.file_delete(path)
             state.cache.remove(path)
           end
@@ -352,6 +363,7 @@ module Commands
     'rmdir REMOTE_DIR...',
     'Remove each specified empty remote directory.',
     lambda do |client, state, args, output|
+      extract_flags('rmdir', args, '')
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           output.call("rmdir: #{path}: no such file or directory")
@@ -365,7 +377,7 @@ module Commands
             output.call("rmdir: #{path}: directory not empty")
             next
           end
-          try_and_handle(DropboxError, output) do
+          try_and_handle(DropboxError) do
             client.file_delete(path)
             state.cache.remove(path)
           end
@@ -383,11 +395,12 @@ module Commands
      this method are set to expire far enough in the future so that \
      expiration is effectively not an issue.",
     lambda do |client, state, args, output|
+      extract_flags('share', args, '')
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           output.call("share: #{path}: no such file or directory")
         else
-          try_and_handle(DropboxError, output) do
+          try_and_handle(DropboxError) do
             url = client.shares(path)['url']
             output.call("#{File.basename(path)} -> #{url}")
           end
@@ -419,11 +432,11 @@ module Commands
   private
 
   # Attempt to run the associated block, handling the given type of +Exception+
-  # by passing its +String+ representation to an output +Proc+.
-  def self.try_and_handle(exception_class, output)
+  # by issuing a warning using its +String+ representation.
+  def self.try_and_handle(exception_class)
     yield
   rescue exception_class => error
-    output.call(error.to_s)
+    warn error
   end
 
   # Run a command with the given name, or print an error message if usage is
@@ -477,7 +490,7 @@ module Commands
   def self.expand(state, paths, preserve_root, output, cmd)
     state.expand_patterns(paths, preserve_root).map do |item|
       if item.is_a?(GlobError)
-        output.call("#{cmd}: #{item}: no such file or directory") if output
+        warn "#{cmd}: #{item}: no such file or directory" if output
         nil
       else
         item
@@ -485,42 +498,50 @@ module Commands
     end.compact
   end
 
+  def self.overwrite(path, client, state)
+    return unless state.metadata(path)
+    client.file_delete(path)
+    state.cache.remove(path)
+  end
+
   # Copies or moves a file and passes a description of the operation to the
   # output +Proc+.
-  def self.copy_move(method, args, client, state, output)
+  def self.copy_move(method, args, flags, client, state)
     from_path, to_path = args.map { |p| state.resolve_path(p) }
-    try_and_handle(DropboxError, output) do
+    try_and_handle(DropboxError) do
+      overwrite(to_path, client, state) if flags.include?('-f')
       metadata = client.send(method, from_path, to_path)
       state.cache.remove(from_path) if method == :file_move
       state.cache.add(metadata)
-      output.call("#{args.first} -> #{args[1]}")
+      puts "#{args.first} -> #{args[1]}"
     end
   end
 
   # Execute a 'mv' or 'cp' operation depending on arguments given.
-  def self.cp_mv(client, state, args, output, cmd)
-    sources = expand(state, args.take(args.size - 1), true, output, cmd)
+  def self.cp_mv(client, state, args, cmd)
+    flags = extract_flags(cmd, args, '-f')
+    sources = expand(state, args.take(args.size - 1), true, true, cmd)
     method = (cmd == 'cp') ? :file_copy : :file_move
     dest = state.resolve_path(args.last)
 
     if sources.size == 1 && !state.directory?(dest)
-      copy_move(method, [sources.first, args.last], client, state, output)
+      copy_move(method, [sources.first, args.last], flags, client, state)
     else
-      cp_mv_to_dir(args, client, state, cmd, output)
+      cp_mv_to_dir(args, flags, client, state, cmd)
     end
   end
 
   # Copies or moves files into a directory.
-  def self.cp_mv_to_dir(args, client, state, cmd, output)
-    sources = expand(state, args.take(args.size - 1), true, nil, cmd)
+  def self.cp_mv_to_dir(args, flags, client, state, cmd)
+    sources = expand(state, args.take(args.size - 1), true, false, cmd)
     method = (cmd == 'cp') ? :file_copy : :file_move
     if state.metadata(state.resolve_path(args.last))
       sources.each do |source|
         to_path = args.last.chomp('/') + '/' + File.basename(source)
-        copy_move(method, [source, to_path], client, state, output)
+        copy_move(method, [source, to_path], flags, client, state)
       end
     else
-      output.call("#{cmd}: #{args.last}: no such directory")
+      warn "#{cmd}: #{args.last}: no such directory"
     end
   end
 
@@ -531,10 +552,16 @@ module Commands
   end
 
   # Removes flags (e.g. -f) from the +Array+ and returns an +Array+ of the
-  # removed flags.
-  def self.extract_flags(args)
-    flags = args.take_while { |s| s[/-\w/] }
-    args.shift(flags.size)
+  # removed flags. Prints warnings if the flags are not in the given +String+
+  # of valid flags (e.g. '-rf').
+  def self.extract_flags(cmd, args, valid_flags)
+    tokens = args.take_while { |s| s[/-\w+/] }
+    args.shift(tokens.size)
+
+    # Process compound flags like -rf into -r, -f.
+    flags = tokens.join.chars.uniq.drop(1).map { |c| "-#{c}" }
+    invalid_flags = flags.reject { |f| valid_flags[f[1]] }
+    invalid_flags.each { |f| warn "#{cmd}: #{f}: invalid option" }
     flags
   end
 end

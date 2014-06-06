@@ -33,7 +33,7 @@ module Complete
   # Return a +String+ representing the type of tab-completion that should be
   # performed, given the current line buffer state.
   def self.completion_type(tokens)
-    index = tokens.size
+    index = tokens.drop_while { |token| token[/-\w+/] }.size
     if index <= 1
       'COMMAND'
     elsif Commands::NAMES.include?(tokens.first)
