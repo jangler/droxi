@@ -301,14 +301,16 @@ module Commands
   # Upload a local file.
   PUT = Command.new(
     'put LOCAL_FILE [REMOTE_FILE]',
-    "Upload a local file to a remote path. If a remote file of the same name \
-     already exists, Dropbox will rename the upload. When given only a local \
-     file path, the remote path defaults to a file of the same name in the \
-     remote working directory.",
+    "Upload a local file to a remote path. If the remote path names a \
+     directory, the file will be placed in that directory. If a remote file \
+     of the same name already exists, Dropbox will rename the upload. When \
+     given only a local file path, the remote path defaults to a file of the \
+     same name in the remote working directory.",
     lambda do |client, state, args, output|
       from_path = args.first
       to_path = (args.size == 2) ? args[1] : File.basename(from_path)
       to_path = state.resolve_path(to_path)
+      to_path << "/#{from_path}" if state.directory?(to_path)
 
       try_and_handle(Exception, output) do
         File.open(File.expand_path(from_path), 'rb') do |file|

@@ -351,6 +351,15 @@ describe Commands do
       state.metadata('/testing/dest.txt').wont_be_nil
     end
 
+    it 'must put file in directory if second arg is directory' do
+      TestUtils.not_structure(client, state, 'test.txt')
+      state.pwd = '/'
+      `touch test.txt`
+      Commands::PUT.exec(client, state, 'test.txt', 'testing')
+      `rm test.txt`
+      state.metadata('/testing/test.txt').wont_be_nil
+    end
+
     it 'must fail with UsageError when given no args' do
       proc { Commands::PUT.exec(client, state) }
         .must_raise Commands::UsageError
