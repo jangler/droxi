@@ -28,7 +28,7 @@ describe Commands do
 
     it 'must give an error message for an invalid command' do
       lines = TestUtils.output_of(Commands, :shell, 'bogus')
-      lines.length.must_equal 1
+      lines.size.must_equal 1
     end
   end
 
@@ -104,8 +104,8 @@ describe Commands do
     it 'must give an error message if trying to copy a bogus file' do
       lines = TestUtils.output_of(Commands::CP, :exec, client, state,
                                   'bogus', '/testing')
-      lines.length.must_equal 1
-      lines[0].start_with?('cp: ').must_equal true
+      lines.size.must_equal 1
+      lines.first.start_with?('cp: ').must_equal true
     end
   end
 
@@ -125,8 +125,8 @@ describe Commands do
     it 'must print the resulting exception if given exceptional input' do
       ARGV << '--debug'
       lines = TestUtils.output_of(Commands::DEBUG, :exec, client, state, 'x')
-      lines.length.must_equal 1
-      lines[0].must_match(/^#<.+>$/)
+      lines.size.must_equal 1
+      lines.first.must_match(/^#<.+>$/)
     end
 
     it 'must fail with UsageError when given no args' do
@@ -145,13 +145,13 @@ describe Commands do
     it 'must accept multiple arguments' do
       args = %w(bogus1, bogus2)
       TestUtils.output_of(Commands::FORGET, :exec, client, state, *args)
-        .length.must_equal 2
+        .size.must_equal 2
     end
 
     it 'must recursively clear contents of directory argument' do
       Commands::LS.exec(client, state, '/', '/testing')
       Commands::FORGET.exec(client, state, '/')
-      state.cache.length.must_equal 1
+      state.cache.size.must_equal 1
     end
   end
 
@@ -170,8 +170,8 @@ describe Commands do
 
     it 'must give an error message if trying to get a bogus file' do
       lines = TestUtils.output_of(Commands::GET, :exec, client, state, 'bogus')
-      lines.length.must_equal 1
-      lines[0].start_with?('get: ').must_equal true
+      lines.size.must_equal 1
+      lines.first.start_with?('get: ').must_equal true
     end
   end
 
@@ -235,14 +235,14 @@ describe Commands do
       TestUtils.exact_structure(client, state, 'test')
       lines = TestUtils.output_of(Commands::LS, :exec, client, state,
                                   '-l', '/testing')
-      lines.length.must_equal 1
-      /d +0 \w{3} .\d \d\d:\d\d test/.match(lines[0]).wont_be_nil
+      lines.size.must_equal 1
+      lines.first[/d +0 \w{3} .\d \d\d:\d\d test/].wont_be_nil
     end
 
     it 'must give an error message if trying to list a bogus file' do
       lines = TestUtils.output_of(Commands::LS, :exec, client, state, 'bogus')
-      lines.length.must_equal 1
-      lines[0].start_with?('ls: ').must_equal true
+      lines.size.must_equal 1
+      lines.first.start_with?('ls: ').must_equal true
     end
   end
 
@@ -251,15 +251,15 @@ describe Commands do
       TestUtils.structure(client, state, 'test.txt')
       path = '/testing/test.txt'
       lines = TestUtils.output_of(Commands::MEDIA, :exec, client, state, path)
-      lines.length.must_equal 1
-      %r{https://.+\..+/}.match(lines[0]).wont_be_nil
+      lines.size.must_equal 1
+      %r{https://.+\..+/}.match(lines.first).wont_be_nil
     end
 
     it 'must fail with error when given directory path' do
       lines = TestUtils.output_of(Commands::MEDIA, :exec, client, state,
                                   '/testing')
-      lines.length.must_equal 1
-      %r{https://.+\..+/}.match(lines[0]).must_be_nil
+      lines.size.must_equal 1
+      %r{https://.+\..+/}.match(lines.first).must_be_nil
     end
 
     it 'must fail with UsageError when given no args' do
@@ -269,8 +269,8 @@ describe Commands do
 
     it 'must give an error message if trying to link a bogus file' do
       lines = TestUtils.output_of(Commands::MEDIA, :exec, client, state, '%')
-      lines.length.must_equal 1
-      lines[0].start_with?('media: ').must_equal true
+      lines.size.must_equal 1
+      lines.first.start_with?('media: ').must_equal true
     end
   end
 
@@ -327,7 +327,7 @@ describe Commands do
     it 'must give an error message if trying to move a bogus file' do
       lines = TestUtils.output_of(Commands::MV, :exec, client, state,
                                   'bogus1', 'bogus2', 'bogus3')
-      lines.length.must_equal 3
+      lines.size.must_equal 3
       lines.all? { |line| line.start_with?('mv: ') }.must_equal true
     end
   end
@@ -362,8 +362,8 @@ describe Commands do
       TestUtils.structure(client, state, 'test.txt')
       lines = TestUtils.output_of(Commands::SHARE, :exec, client, state,
                                   '/testing/test.txt')
-      lines.length.must_equal 1
-      %r{https://.+\..+/}.match(lines[0]).wont_be_nil
+      lines.size.must_equal 1
+      %r{https://.+\..+/}.match(lines.first).wont_be_nil
     end
 
     it 'must fail with UsageError when given no args' do
@@ -373,8 +373,8 @@ describe Commands do
 
     it 'must give an error message if trying to share a bogus file' do
       lines = TestUtils.output_of(Commands::SHARE, :exec, client, state, '%')
-      lines.length.must_equal 1
-      lines[0].start_with?('share: ').must_equal true
+      lines.size.must_equal 1
+      lines.first.start_with?('share: ').must_equal true
     end
   end
 
@@ -400,27 +400,27 @@ describe Commands do
 
     it 'must give an error message if trying to remove a bogus file' do
       lines = TestUtils.output_of(Commands::RM, :exec, client, state, 'bogus')
-      lines.length.must_equal 1
-      lines[0].start_with?('rm: ').must_equal true
+      lines.size.must_equal 1
+      lines.first.start_with?('rm: ').must_equal true
     end
   end
 
   describe 'when executing the help command' do
     it 'must print a list of commands when given no args' do
       TestUtils.output_of(Commands::HELP, :exec, client, state)
-        .join.split.length.must_equal Commands::NAMES.length
+        .join.split.size.must_equal Commands::NAMES.size
     end
 
     it 'must print help for a command when given it as an arg' do
       lines = TestUtils.output_of(Commands::HELP, :exec, client, state, 'help')
-      lines.length.must_be :>=, 2
-      lines[0].must_equal Commands::HELP.usage
+      lines.size.must_be :>=, 2
+      lines.first.must_equal Commands::HELP.usage
       lines.drop(1).join(' ').must_equal Commands::HELP.description
     end
 
     it 'must print an error message if given a bogus name as an arg' do
       TestUtils.output_of(Commands::HELP, :exec, client, state, 'bogus')
-        .length.must_equal 1
+        .size.must_equal 1
     end
 
     it 'must fail with UsageError when given multiple args' do

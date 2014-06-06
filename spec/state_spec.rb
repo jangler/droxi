@@ -65,18 +65,18 @@ describe State do
     end
 
     it 'must yield an error for a bogus path' do
-      TestUtils.output_of(state, :forget_contents, 'bogus').length.must_equal 1
+      TestUtils.output_of(state, :forget_contents, 'bogus').size.must_equal 1
     end
 
     it 'must yield an error for a non-directory path' do
       TestUtils.output_of(state, :forget_contents, '/dir/file0')
-        .length.must_equal 1
+        .size.must_equal 1
     end
 
     it 'must yield an error for an already forgotten path' do
       state.forget_contents('/dir')
       TestUtils.output_of(state, :forget_contents, '/dir')
-        .length.must_equal 1
+        .size.must_equal 1
     end
 
     it 'must forget contents of given directory' do
@@ -91,7 +91,7 @@ describe State do
       state.forget_contents('/')
       state.cache['/'].include?('contents').must_equal false
       state.cache.keys.any? do |key|
-        key.length > 1
+        key.size > 1
       end.must_equal false
     end
   end

@@ -23,19 +23,19 @@ describe Text do
   describe 'when wrapping text' do
     it "won't return any line larger than the screen width if unnecessary" do
       Text.wrap(@paragraph).all? do |line|
-        line.length <= @columns
+        line.size <= @columns
       end.must_equal true
     end
 
     it "won't split a word larger than the screen width" do
-      Text.wrap(@big_word).length.must_equal 1
+      Text.wrap(@big_word).size.must_equal 1
     end
   end
 
   describe 'when tabulating text' do
     it 'must space items equally' do
       lines = Text.table(@paragraph.split)
-      lines = lines[0, lines.length - 1]
+      lines = lines[0, lines.size - 1]
 
       space_positions = [0]
       while lines.first.index(/  \S/, space_positions.last + 3)
@@ -43,18 +43,18 @@ describe Text do
       end
 
       space_positions.drop(1).all? do |position|
-        lines.all? { |line| /  \S/.match(line[position, 3]) }
+        lines.all? { |line| line[position, 3][/  \S/] }
       end.must_equal true
     end
 
     it "won't return any line larger than the screen width if unnecessary" do
       Text.table(@paragraph.split).all? do |line|
-        line.length <= @columns
+        line.size <= @columns
       end.must_equal true
     end
 
     it "won't split a word larger than the screen width" do
-      Text.table([@big_word]).length.must_equal 1
+      Text.table([@big_word]).size.must_equal 1
     end
   end
 end

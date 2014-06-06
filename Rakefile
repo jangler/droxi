@@ -1,4 +1,4 @@
-task :default => :build
+task default: :build
 
 desc 'run unit tests'
 task :test do
@@ -52,7 +52,7 @@ task :build do
 
   def date(gemspec)
     require 'time'
-    Time.parse(/\d{4}-\d{2}-\d{2}/.match(gemspec)[0]).strftime('%B %Y')
+    Time.parse(gemspec[/\d{4}-\d{2}-\d{2}/]).strftime('%B %Y')
   end
 
   def commands
@@ -66,15 +66,15 @@ task :build do
   def build_page
     gemspec = IO.read('droxi.gemspec')
 
-    contents = IO.read('droxi.1.template').
-      sub('{date}', date(gemspec)).
-      sub('{version}', /\d+\.\d+\.\d+/.match(gemspec)[0]).
-      sub('{commands}', commands)
+    contents = format(IO.read('droxi.1.template'),
+                      date: date(gemspec),
+                      version: gemspec[/\d+\.\d+\.\d+/],
+                      commands: commands)
 
     IO.write('build/droxi.1', contents)
   end
 
-  Dir.mkdir('build') unless Dir.exists?('build')
+  Dir.mkdir('build') unless Dir.exist?('build')
   build_exe
   build_page
 end
@@ -91,7 +91,7 @@ task :install do
     FileUtils.cp('build/droxi', BIN_PATH)
     FileUtils.mkdir_p(MAN_PATH)
     FileUtils.cp('build/droxi.1', MAN_PATH)
-  rescue Exception => error
+  rescue => error
     puts error
   end
 end
@@ -102,7 +102,7 @@ task :uninstall do
   begin
     FileUtils.rm("#{BIN_PATH}/droxi")
     FileUtils.rm("#{MAN_PATH}/droxi.1")
-  rescue Exception => error
+  rescue => error
     puts error
   end
 end

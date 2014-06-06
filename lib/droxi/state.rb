@@ -1,53 +1,8 @@
+require_relative 'cache'
 require_relative 'settings'
 
 # Represents a failure of a glob expression to match files.
-class GlobError < ArgumentError
-end
-
-# Special +Hash+ of remote file paths to cached file metadata.
-class Cache < Hash
-  # Add a metadata +Hash+ and its contents to the +Cache+ and return the
-  # +Cache+.
-  def add(metadata)
-    store(metadata['path'], metadata)
-    dirname = File.dirname(metadata['path'])
-    if dirname != metadata['path']
-      contents = fetch(dirname, {}).fetch('contents', nil)
-      contents << metadata if contents && !contents.include?(metadata)
-    end
-    return self unless metadata.include?('contents')
-    metadata['contents'].each { |content| add(content) }
-    self
-  end
-
-  # Remove a path from the +Cache+ and return the +Cache+.
-  def remove(path)
-    recursive_remove(path)
-
-    dir = File.dirname(path)
-    return self unless fetch(dir, {}).include?('contents')
-    fetch(dir)['contents'].delete_if { |item| item['path'] == path }
-
-    self
-  end
-
-  # Return +true+ if the path's information is cached, +false+ otherwise.
-  def full_info?(path, require_contents = true)
-    info = fetch(path, nil)
-    info && (!require_contents || !info['is_dir'] || info.include?('contents'))
-  end
-
-  private
-
-  # Recursively remove a path and its sub-files and directories.
-  def recursive_remove(path)
-    if fetch(path, {}).include?('contents')
-      fetch(path)['contents'].each { |item| recursive_remove(item['path']) }
-    end
-
-    delete(path)
-  end
-end
+GlobError = Class.new(ArgumentError)
 
 # Encapsulates the session state of the client.
 class State
@@ -82,7 +37,7 @@ class State
   def metadata(path, require_contents = true)
     tokens = path.split('/').drop(1)
 
-    (0..tokens.length).each do |i|
+    (0..tokens.size).each do |i|
       partial_path = '/' + tokens.take(i).join('/')
       next if @cache.full_info?(partial_path, require_contents)
       return nil unless fetch_metadata(partial_path)
@@ -129,14 +84,14 @@ class State
   # Expand an +Array+ of file globs into an an +Array+ of Dropbox file paths
   # and return the result.
   def expand_patterns(patterns, preserve_root = false)
-    patterns.map do |pattern|
+    patterns.flat_map do |pattern|
       path = resolve_path(pattern)
       if directory?(path)
         preserve_root ? pattern : path
       else
         get_matches(pattern, path, preserve_root)
       end
-    end.flatten
+    end
   end
 
   # Recursively remove directory contents from metadata cache. Yield lines of

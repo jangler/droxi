@@ -67,7 +67,7 @@ module Complete
   end
 
   def self.match?(prefix, candidate)
-    candidate.start_with?(prefix) && !/^\.\.?$/.match(candidate)
+    candidate.start_with?(prefix) && !candidate[/^\.\.?$/]
   end
 
   def self.final_match(string, candidate, is_dir)

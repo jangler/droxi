@@ -8,7 +8,7 @@ module Text
   def self.table(items)
     return [] if items.empty?
     width = terminal_width
-    item_width = items.map { |item| item.length }.max + 2
+    item_width = items.map { |item| item.size }.max + 2
     items_per_line = [1, width / item_width].max
     format_table(items, item_width, items_per_line)
   end
@@ -18,9 +18,9 @@ module Text
   def self.wrap(text)
     width, position = terminal_width, 0
     lines = []
-    while position < text.length
-      lines << get_wrap_segment(text[position, text.length], width)
-      position += lines.last.length + 1
+    while position < text.size
+      lines << get_wrap_segment(text[position, text.size], width)
+      position += lines.last.size + 1
     end
     lines
   end
@@ -51,10 +51,10 @@ module Text
     loop do
       head, _, text = text.partition(' ')
       line << "#{head} "
-      break if text.empty? || line.length >= width
+      break if text.empty? || line.size >= width
     end
     line.strip!
-    trim_last_word = line.length > width && line.include?(' ')
-    trim_last_word ? line.rpartition(' ')[0] : line
+    trim_last_word = line.size > width && line.include?(' ')
+    trim_last_word ? line.rpartition(' ').first : line
   end
 end

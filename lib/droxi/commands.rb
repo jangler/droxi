@@ -6,8 +6,7 @@ require_relative 'text'
 module Commands
   # Exception indicating that a client command was given the wrong number of
   # arguments.
-  class UsageError < ArgumentError
-  end
+  UsageError = Class.new(ArgumentError)
 
   # A client command. Contains metadata as well as execution procedure.
   class Command
@@ -34,7 +33,7 @@ module Commands
     # given. Raises a +UsageError+ if an invalid number of command-line
     # arguments is given.
     def exec(client, state, *args)
-      fail UsageError, @usage unless num_args_ok?(args.length)
+      fail UsageError, @usage unless num_args_ok?(args.size)
       block = proc { |line| yield line if block_given? }
       @procedure.yield(client, state, args, block)
     end
@@ -45,7 +44,7 @@ module Commands
     def type_of_arg(index)
       args = @usage.split.drop(1).reject { |arg| arg.include?('-') }
       return nil if args.empty?
-      index = [index, args.length - 1].min
+      index = [index, args.size - 1].min
       args[index].tr('[].', '')
     end
 
@@ -55,11 +54,11 @@ module Commands
     # command, +false+ otherwise.
     def num_args_ok?(num_args)
       args = @usage.split.drop(1)
-      min_args = args.reject { |arg| arg.start_with?('[') }.length
+      min_args = args.reject { |arg| arg.start_with?('[') }.size
       max_args = if args.any? { |arg| arg.end_with?('...') }
                    num_args
                  else
-                   args.length
+                   args.size
                  end
       (min_args..max_args).include?(num_args)
     end
@@ -75,13 +74,13 @@ module Commands
     lambda do |_client, state, args, output|
       case
       when args.empty? then state.pwd = '/'
-      when args[0] == '-' then state.pwd = state.oldpwd
+      when args.first == '-' then state.pwd = state.oldpwd
       else
-        path = state.resolve_path(args[0])
+        path = state.resolve_path(args.first)
         if state.directory?(path)
           state.pwd = path
         else
-          output.call("cd: #{args[0]}: no such directory")
+          output.call("cd: #{args.first}: no such directory")
         end
       end
     end
@@ -175,7 +174,7 @@ module Commands
       if args.empty?
         Text.table(NAMES).each { |line| output.call(line) }
       else
-        cmd_name = args[0]
+        cmd_name = args.first
         if NAMES.include?(cmd_name)
           cmd = const_get(cmd_name.upcase.to_s)
           output.call(cmd.usage)
@@ -197,12 +196,12 @@ module Commands
     lambda do |_client, state, args, output|
       path = case
              when args.empty? then File.expand_path('~')
-             when args[0] == '-' then state.local_oldpwd
+             when args.first == '-' then state.local_oldpwd
              else
                begin
-                 File.expand_path(args[0])
+                 File.expand_path(args.first)
                rescue ArgumentError
-                 args[0]
+                 args.first
                end
              end
 
@@ -210,7 +209,7 @@ module Commands
         state.local_oldpwd = Dir.pwd
         Dir.chdir(path)
       else
-        output.call("lcd: #{args[0]}: no such file or directory")
+        output.call("lcd: #{args.first}: no such file or directory")
       end
     end
   )
@@ -238,17 +237,17 @@ module Commands
 
       dirs << state.pwd if args.empty?
 
-      # First list files
+      # First list files.
       list(state, files, files, long) { |line| output.call(line) }
       output.call('') unless dirs.empty? || files.empty?
 
-      # Then list directory contents
+      # Then list directory contents.
       dirs.each_with_index do |dir, i|
-        output.call(dir + ':') if dirs.length + files.length > 1
+        output.call(dir + ':') if dirs.size + files.size > 1
         contents = state.contents(dir)
         names = contents.map { |path| File.basename(path) }
         list(state, contents, names, long) { |line| output.call(line) }
-        output.call('') if i < dirs.length - 1
+        output.call('') if i < dirs.size - 1
       end
     end
   )
@@ -307,8 +306,8 @@ module Commands
      file path, the remote path defaults to a file of the same name in the \
      remote working directory.",
     lambda do |client, state, args, output|
-      from_path = args[0]
-      to_path = (args.length == 2) ? args[1] : File.basename(from_path)
+      from_path = args.first
+      to_path = (args.size == 2) ? args[1] : File.basename(from_path)
       to_path = state.resolve_path(to_path)
 
       try_and_handle(Exception, output) do
@@ -373,10 +372,10 @@ module Commands
   # Parse and execute a line of user input in the given context.
   def self.exec(input, client, state)
     if input.start_with?('!')
-      shell(input[1, input.length - 1]) { |line| puts line }
+      shell(input[1, input.size - 1]) { |line| puts line }
     elsif !input.empty?
       tokens = tokenize(input)
-      cmd, args = tokens[0], tokens.drop(1)
+      cmd, args = tokens.first, tokens.drop(1)
       try_command(cmd, args, client, state)
     end
   end
@@ -470,18 +469,18 @@ module Commands
       metadata = client.send(method, from_path, to_path)
       state.cache.remove(from_path) if method == :file_move
       state.cache.add(metadata)
-      output.call("#{args[0]} -> #{args[1]}")
+      output.call("#{args.first} -> #{args[1]}")
     end
   end
 
   # Execute a 'mv' or 'cp' operation depending on arguments given.
   def self.cp_mv(client, state, args, output, cmd)
-    sources = expand(state, args.take(args.length - 1), true, output, cmd)
+    sources = expand(state, args.take(args.size - 1), true, output, cmd)
     method = (cmd == 'cp') ? :file_copy : :file_move
     dest = state.resolve_path(args.last)
 
-    if sources.length == 1 && !state.directory?(dest)
-      copy_move(method, [sources[0], args.last], client, state, output)
+    if sources.size == 1 && !state.directory?(dest)
+      copy_move(method, [sources.first, args.last], client, state, output)
     else
       cp_mv_to_dir(args, client, state, cmd, output)
     end
@@ -489,7 +488,7 @@ module Commands
 
   # Copies or moves files into a directory.
   def self.cp_mv_to_dir(args, client, state, cmd, output)
-    sources = expand(state, args.take(args.length - 1), true, nil, cmd)
+    sources = expand(state, args.take(args.size - 1), true, nil, cmd)
     method = (cmd == 'cp') ? :file_copy : :file_move
     if state.metadata(state.resolve_path(args.last))
       sources.each do |source|

@@ -94,7 +94,7 @@ describe Complete do
   describe 'when finding local directory tab completions' do
     it 'must include all directories and only directories' do
       entries = Dir.entries(Dir.pwd).select do |entry|
-        File.directory?(entry) && !/^..?$/.match(entry)
+        File.directory?(entry) && !entry[/^..?$/]
       end
       matches = Complete.local_dir('').map { |match| match.chomp('/') }
       matches.sort.must_equal entries.sort
@@ -165,7 +165,7 @@ describe Complete do
     end
 
     it 'must return matches if and only if the string is a prefix' do
-      Complete.command('pla', @words).length.must_equal 2
+      Complete.command('pla', @words).size.must_equal 2
     end
 
     it 'must return matches that end with a space' do

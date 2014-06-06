@@ -43,7 +43,7 @@ module Droxi
     code = get_auth_code(authorize_url)
 
     begin
-      Settings[:access_token] = flow.finish(code)[0]
+      Settings[:access_token] = flow.finish(code).first
     rescue DropboxError
       puts 'Invalid authorization code.'
     end
@@ -69,7 +69,7 @@ module Droxi
     init_readline(state)
     with_interrupt_handling { do_interaction_loop(client, state, info) }
 
-    # Set pwd before exiting so that the oldpwd setting is saved to pwd
+    # Set pwd before exiting so that the oldpwd setting is saved to pwd.
     state.pwd = '/'
   end
 
@@ -90,17 +90,16 @@ module Droxi
   # performed, given the current line buffer state.
   def self.completion_type
     words = Readline.line_buffer.split
-    index = words.length
+    index = words.size
     index += 1 if Readline.line_buffer.end_with?(' ')
     if index <= 1
       'COMMAND'
-    elsif Commands::NAMES.include?(words[0])
-      cmd = Commands.const_get(words[0].upcase.to_sym)
+    elsif Commands::NAMES.include?(words.first)
+      cmd = Commands.const_get(words.first.upcase.to_sym)
       cmd.type_of_arg(index - 2)
     end
   end
 
-  # Set up the Readline library's completion capabilities.
   def self.init_readline(state)
     Readline.completion_proc = proc do |word|
       completion_options(completion_type, word, state).map do |option|
@@ -115,8 +114,6 @@ module Droxi
     end
   end
 
-  # Run the associated block, handling Interrupt errors by printing a blank
-  # line.
   def self.with_interrupt_handling
     yield
   rescue Interrupt
@@ -134,8 +131,6 @@ module Droxi
     puts unless line
   end
 
-  # Instruct the user to enter an authorization code and return the code. If
-  # the user gives EOF, exit the program.
   def self.get_auth_code(url)
     puts '1. Go to: ' + url
     puts '2. Click "Allow" (you might have to log in first)'

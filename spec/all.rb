@@ -1,4 +1,4 @@
-# Use SimpleCov coverage-tracking library if available
+# Use SimpleCov coverage-tracking library if available.
 begin
   require 'simplecov'
   SimpleCov.start do
@@ -8,7 +8,7 @@ rescue LoadError
   nil
 end
 
-# Run all spec tests
+# Run all spec tests.
 Dir.glob('spec/*_spec.rb').each do |spec|
   require_relative File.basename(spec, '.rb')
 end
