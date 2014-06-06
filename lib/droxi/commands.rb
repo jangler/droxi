@@ -324,13 +324,47 @@ module Commands
 
   # Remove remote files.
   RM = Command.new(
-    'rm REMOTE_FILE...',
-    'Remove each specified remote file or directory.',
+    'rm [-r] REMOTE_FILE...',
+    "Remove each specified remote file. If the -r option is given, will \
+     also remove directories recursively.",
     lambda do |client, state, args, output|
+      flags = extract_flags(args)
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           output.call("rm: #{path}: no such file or directory")
         else
+          if state.directory?(path) && !flags.include?('-r')
+            output.call("rm: #{path}: is a directory")
+            next
+          end
+          try_and_handle(DropboxError, output) do
+            client.file_delete(path)
+            state.cache.remove(path)
+          end
+        end
+      end
+      check_pwd(state)
+    end
+  )
+
+  # Remove remote directories.
+  RMDIR = Command.new(
+    'rmdir REMOTE_DIR...',
+    'Remove each specified empty remote directory.',
+    lambda do |client, state, args, output|
+      state.expand_patterns(args).each do |path|
+        if path.is_a?(GlobError)
+          output.call("rmdir: #{path}: no such file or directory")
+        else
+          unless state.directory?(path)
+            output.call("rmdir: #{path}: not a directory")
+            next
+          end
+          contents = state.metadata(path)['contents']
+          if contents && !contents.empty?
+            output.call("rmdir: #{path}: directory not empty")
+            next
+          end
           try_and_handle(DropboxError, output) do
             client.file_delete(path)
             state.cache.remove(path)
@@ -494,5 +528,13 @@ module Commands
   # tree until at a real location.
   def self.check_pwd(state)
     (state.pwd = File.dirname(state.pwd)) until state.metadata(state.pwd)
+  end
+
+  # Removes flags (e.g. -f) from the +Array+ and returns an +Array+ of the
+  # removed flags.
+  def self.extract_flags(args)
+    flags = args.take_while { |s| s[/-\w/] }
+    args.shift(flags.size)
+    flags
   end
 end

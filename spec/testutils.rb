@@ -36,7 +36,7 @@ module TestUtils
     paths.map! { |path| "#{TEST_ROOT}/#{path}" }
     dead_paths = state.contents(TEST_ROOT).select { |p| paths.include?(p) }
     return if dead_paths.empty?
-    Commands::RM.exec(client, state, *dead_paths)
+    Commands::RM.exec(client, state, '-r', *dead_paths)
   end
 
   # Ensure that the remote directory structure under +TEST_ROOT+ exactly
@@ -46,7 +46,7 @@ module TestUtils
     paths.map! { |path| "#{TEST_ROOT}/#{path}" }
     dead_paths = state.contents(TEST_ROOT).reject { |p| paths.include?(p) }
     return if dead_paths.empty?
-    Commands::RM.exec(client, state, *dead_paths)
+    Commands::RM.exec(client, state, '-r', *dead_paths)
   end
 
   # Returns a new +DropboxClient+ and +State+.

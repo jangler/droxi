@@ -390,9 +390,9 @@ describe Commands do
 
   describe 'when executing the rm command' do
     it 'must remove the remote file when given args' do
-      TestUtils.structure(client, state, 'test')
-      Commands::RM.exec(client, state, '/testing/test')
-      state.metadata('/testing/test').must_be_nil
+      TestUtils.structure(client, state, 'test.txt')
+      Commands::RM.exec(client, state, '/testing/test.txt')
+      state.metadata('/testing/test.txt').must_be_nil
     end
 
     it 'must change pwd to existing dir if the current one is removed' do
@@ -412,6 +412,21 @@ describe Commands do
       lines = TestUtils.output_of(Commands::RM, :exec, client, state, 'bogus')
       lines.size.must_equal 1
       lines.first.start_with?('rm: ').must_equal true
+    end
+
+    it 'must give error message if trying to remove dir without -r option' do
+      TestUtils.structure(client, state, 'test')
+      lines = TestUtils.output_of(Commands::RM, :exec, client, state,
+                                  '/testing/test')
+      lines.size.must_equal 1
+      lines.first.start_with?('rm: ').must_equal true
+    end
+
+    it 'must remove dir recursively when given -r option' do
+      TestUtils.structure(client, state, 'test', 'test/dir', 'test/file.txt')
+      Commands::RM.exec(client, state, '-r', '/testing/test')
+      paths = %w(/testing/test /testing/test/dir /testing/test/file.txt)
+      paths.each { |path| state.metadata(path).must_be_nil }
     end
   end
 
@@ -435,6 +450,44 @@ describe Commands do
 
     it 'must fail with UsageError when given multiple args' do
       proc { Commands::HELP.exec(client, state, 'a', 'b') }
+        .must_raise Commands::UsageError
+    end
+  end
+
+  describe 'when executing the rmdir command' do
+    it 'must remove remote directories if empty' do
+      TestUtils.exact_structure(client, state, 'dir1', 'dir2')
+      Commands::RMDIR.exec(client, state, '/testing/dir?')
+      paths = %w(/testing/dir1 /testing/dir2)
+      paths.each { |path| state.metadata(path).must_be_nil }
+    end
+
+    it 'must fail with error if remote directory not empty' do
+      TestUtils.structure(client, state, 'test', 'test/file.txt')
+      lines = TestUtils.output_of(Commands::RMDIR, :exec, client, state,
+                                  '/testing/test')
+      lines.size.must_equal 1
+      lines.first.start_with?('rmdir: ').must_equal true
+    end
+
+    it 'must fail with error if used on file' do
+      TestUtils.structure(client, state, 'test.txt')
+      lines = TestUtils.output_of(Commands::RMDIR, :exec, client, state,
+                                  '/testing/test.txt')
+      lines.size.must_equal 1
+      lines.first.start_with?('rmdir: ').must_equal true
+    end
+
+    it 'must fail with error if given bogus name' do
+      TestUtils.not_structure(client, state, 'bogus')
+      lines = TestUtils.output_of(Commands::RMDIR, :exec, client, state,
+                                  '/testing/bogus')
+      lines.size.must_equal 1
+      lines.first.start_with?('rmdir: ').must_equal true
+    end
+
+    it 'must fail with UsageError when given no args' do
+      proc { Commands::RMDIR.exec(client, state) }
         .must_raise Commands::UsageError
     end
   end
