@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'droxi'
-  s.version     = '0.1.1'
+  s.version     = IO.read('lib/droxi.rb')[/VERSION = '(.+)'/, 1]
   s.date        = '2014-06-06'
   s.summary     = 'ftp-like command-line interface to Dropbox'
   s.description = "A command-line Dropbox interface inspired by GNU \

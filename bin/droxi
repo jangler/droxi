@@ -1,3 +1,3 @@
 #!/usr/bin/env ruby
 require_relative '../lib/droxi'
-Droxi.run(*(ARGV.reject { |arg| arg == '--debug' }))
+Droxi.run(ARGV.dup)

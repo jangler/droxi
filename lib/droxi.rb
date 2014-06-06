@@ -8,23 +8,39 @@ require_relative 'droxi/state'
 
 # Command-line Dropbox client module.
 module Droxi
+  # Version number of the program.
+  VERSION = '0.1.1'
+
   # Run the client.
-  def self.run(*args)
+  def self.run(args)
     client = DropboxClient.new(access_token)
     state = State.new(client)
 
-    if args.empty?
-      run_interactive(client, state)
-    else
-      with_interrupt_handling do
-        Commands.exec(join_cmd(args), client, state)
-      end
-    end
+    options = handle_options(args)
+    args.shift(options.size)
+
+    args.empty? ? run_interactive(client, state) : invoke(args, client, state)
 
     Settings.save
   end
 
   private
+
+  # Handles command-line options extracted from an +Array+ and returns an
+  # +Array+ of the extracted options.
+  def self.handle_options(args)
+    options = args.take_while { |s| s.start_with?('--') }
+    if options.include?('--version')
+      puts "droxi v#{VERSION}"
+      exit
+    end
+    options
+  end
+
+  # Invokes a single command formed by joining an +Array+ of +String+ args.
+  def self.invoke(args, client, state)
+    with_interrupt_handling { Commands.exec(join_cmd(args), client, state) }
+  end
 
   # Return a +String+ of joined command-line args, adding backslash escapes for
   # spaces.
