@@ -59,10 +59,13 @@ module TestUtils
 
   # Creates a remote file at the given path.
   def self.put_temp_file(client, state, path)
-    `mkdir testing`
+    `[ -d testing ] || mkdir testing`
     basename = File.basename(path)
     `touch testing/#{basename}`
+    real_stdout = $stdout
+    $stdout = StringIO.new
     Commands::PUT.exec(client, state, "testing/#{basename}", path)
+    $stdout = real_stdout
     `rm -rf testing`
   end
 end

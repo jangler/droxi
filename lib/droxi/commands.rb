@@ -150,20 +150,25 @@ module Commands
 
   # Download remote files.
   GET = Command.new(
-    'get REMOTE_FILE...',
+    'get [-f] REMOTE_FILE...',
     "Download each specified remote file to a file of the same name in the \
-     local working directory.",
-    lambda do |client, state, args, output|
-      extract_flags('get', args, '')
+     local working directory. Will refuse to overwrite existing files unless \
+     invoked with the -f option.",
+    lambda do |client, state, args, _output|
+      flags = extract_flags('get', args, '-f')
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
-          output.call("get: #{path}: no such file or directory")
+          warn "get: #{path}: no such file or directory"
         else
+          basename = File.basename(path)
           try_and_handle(DropboxError) do
-            contents = client.get_file(path)
-            basename = File.basename(path)
-            File.open(basename, 'wb') { |file| file.write(contents) }
-            output.call("#{basename} <- #{path}")
+            if flags.include?('-f') || !File.exist?(basename)
+              contents = client.get_file(path)
+              IO.write(basename, contents, mode: 'wb')
+              puts "#{basename} <- #{path}"
+            else
+              warn "get: #{basename}: local file already exists"
+            end
           end
         end
       end
@@ -310,24 +315,29 @@ module Commands
 
   # Upload a local file.
   PUT = Command.new(
-    'put LOCAL_FILE [REMOTE_FILE]',
+    'put [-f] LOCAL_FILE [REMOTE_FILE]',
     "Upload a local file to a remote path. If the remote path names a \
      directory, the file will be placed in that directory. If a remote file \
-     of the same name already exists, Dropbox will rename the upload. When \
-     given only a local file path, the remote path defaults to a file of the \
-     same name in the remote working directory.",
-    lambda do |client, state, args, output|
-      extract_flags('put', args, '')
+     of the same name already exists, Dropbox will rename the upload unless \
+     the -f option is given, in which case the remote file will be \
+     overwritten. When given only a local file path, the remote path defaults \
+     to a file of the same name in the remote working directory.",
+    lambda do |client, state, args, _output|
+      flags = extract_flags('put', args, '-f')
       from_path = args.first
       to_path = (args.size == 2) ? args[1] : File.basename(from_path)
       to_path = state.resolve_path(to_path)
       to_path << "/#{from_path}" if state.directory?(to_path)
 
-      try_and_handle(Exception) do
+      try_and_handle(StandardError) do
         File.open(File.expand_path(from_path), 'rb') do |file|
+          if flags.include?('-f') && state.metadata(to_path)
+            client.file_delete(to_path)
+            state.cache.remove(to_path)
+          end
           data = client.put_file(to_path, file)
           state.cache.add(data)
-          output.call("#{from_path} -> #{data['path']}")
+          puts "#{from_path} -> #{data['path']}"
         end
       end
     end

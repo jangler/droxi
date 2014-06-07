@@ -171,22 +171,43 @@ describe Commands do
   end
 
   describe 'when executing the get command' do
+    before do
+      state.pwd = TestUtils::TEST_ROOT
+      @get = proc do |*args|
+        capture_io { Commands::GET.exec(client, state, *args) }
+      end
+    end
+
     it 'must get a file of the same name when given args' do
       TestUtils.structure(client, state, 'test.txt')
-      Commands::GET.exec(client, state, '/testing/test.txt')
+      @get.call('test.txt')
       `ls test.txt`.chomp.must_equal 'test.txt'
       `rm test.txt`
     end
 
     it 'must fail with UsageError when given no args' do
-      proc { Commands::GET.exec(client, state) }
-        .must_raise Commands::UsageError
+      proc { @get.call }.must_raise Commands::UsageError
     end
 
     it 'must give an error message if trying to get a bogus file' do
-      lines = TestUtils.output_of(Commands::GET, :exec, client, state, 'bogus')
-      lines.size.must_equal 1
-      lines.first.start_with?('get: ').must_equal true
+      _, err = @get.call('bogus')
+      err.lines.size.must_equal 1
+      err[/^get: /].wont_be_nil
+    end
+
+    it 'must fail if trying to get existing file without -f' do
+      TestUtils.structure(client, state, 'test.txt')
+      `touch test.txt`
+      _, err = @get.call('test.txt')
+      err.lines.size.must_equal 1
+      err[/^get: /].wont_be_nil
+    end
+
+    it 'must not fail if trying to get existing file with -f' do
+      TestUtils.structure(client, state, 'test.txt')
+      `touch test.txt`
+      _, err = @get.call('-f', 'test.txt')
+      err.must_be :empty?
     end
   end
 
@@ -362,36 +383,57 @@ describe Commands do
   end
 
   describe 'when executing the put command' do
+    before do
+      state.pwd = TestUtils::TEST_ROOT
+      @put = proc do |*args|
+        capture_io { Commands::PUT.exec(client, state, *args) }
+      end
+    end
+
     it 'must put a file of the same name when given 1 arg' do
       TestUtils.not_structure(client, state, 'test.txt')
-      state.pwd = '/testing'
       `echo hello > test.txt`
-      Commands::PUT.exec(client, state, 'test.txt')
+      @put.call('test.txt')
       `rm test.txt`
       state.metadata('/testing/test.txt').wont_be_nil
     end
 
     it 'must put a file with the stated name when given 2 args' do
       TestUtils.not_structure(client, state, 'dest.txt')
-      state.pwd = '/testing'
       `echo hello > test.txt`
-      Commands::PUT.exec(client, state, 'test.txt', 'dest.txt')
+      @put.call('test.txt', 'dest.txt')
       `rm test.txt`
       state.metadata('/testing/dest.txt').wont_be_nil
     end
 
     it 'must put file in directory if second arg is directory' do
       TestUtils.not_structure(client, state, 'test.txt')
-      state.pwd = '/'
       `touch test.txt`
-      Commands::PUT.exec(client, state, 'test.txt', 'testing')
+      @put.call('test.txt', '/testing')
       `rm test.txt`
       state.metadata('/testing/test.txt').wont_be_nil
     end
 
+    it 'must not overwrite without -f option' do
+      TestUtils.structure(client, state, 'test.txt')
+      TestUtils.not_structure(client, state, 'test (1).txt')
+      `touch test.txt`
+      @put.call('test.txt')
+      `rm test.txt`
+      state.metadata('/testing/test (1).txt').wont_be_nil
+    end
+
+    it 'must overwrite with -f option' do
+      TestUtils.structure(client, state, 'test.txt')
+      TestUtils.not_structure(client, state, 'test (1).txt')
+      `touch test.txt`
+      @put.call('-f', 'test.txt')
+      `rm test.txt`
+      state.metadata('/testing/test (1).txt').must_be_nil
+    end
+
     it 'must fail with UsageError when given no args' do
-      proc { Commands::PUT.exec(client, state) }
-        .must_raise Commands::UsageError
+      proc { @put.call }.must_raise Commands::UsageError
     end
   end
 
