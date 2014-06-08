@@ -456,6 +456,25 @@ module Commands
     end
   )
 
+  # Search for remote files.
+  SEARCH = Command.new(
+    'search REMOTE_DIR SUBSTRING...',
+    "List remote files in a directory with names that contain all the given \
+     substrings.",
+    lambda do |client, state, args|
+      extract_flags('search', args, '')
+      path = state.resolve_path(args.first)
+      unless state.directory?(path)
+        warn "search: #{args.first}: no such directory"
+        return
+      end
+      query = args.drop(1).join(' ')
+      try_and_handle(DropboxError) do
+        client.search(path, query).each { |result| puts result['path'] }
+      end
+    end
+  )
+
   # Get permanent links to remote files.
   SHARE = Command.new(
     'share REMOTE_FILE...',
