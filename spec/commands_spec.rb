@@ -31,6 +31,36 @@ describe Commands do
     end
   end
 
+  describe 'when executing the cat command' do
+    before do
+      state.pwd = TestUtils::TEST_ROOT
+      @cat = proc do |*args|
+        capture_io { Commands::CAT.exec(client, state, *args) }
+      end
+    end
+
+    it 'must print the contents of existing remote files' do
+      `echo hello > hello.txt`
+      `echo world > world.txt`
+      capture_io do
+        Commands::PUT.exec(client, state, 'hello.txt', 'world.txt')
+      end
+      out, _ = @cat.call('hello.txt', 'world.txt')
+      out.must_equal("hello\nworld\n")
+      `rm hello.txt world.txt`
+    end
+
+    it 'must give an error message if trying to cat a bogus file' do
+      _, err = @cat.call('bogus')
+      err.lines.size.must_equal 1
+      err.start_with?('cat: ').must_equal true
+    end
+
+    it 'must fail with UsageError when given no args' do
+      proc { @cat.call }.must_raise Commands::UsageError
+    end
+  end
+
   describe 'when executing the cd command' do
     before do
       @cd = proc do |*args|
