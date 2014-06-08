@@ -64,7 +64,9 @@ module TestUtils
     `touch testing/#{basename}`
     real_stdout = $stdout
     $stdout = StringIO.new
-    Commands::PUT.exec(client, state, "testing/#{basename}", path)
+    prev_pwd, state.pwd = state.pwd, '/testing'
+    Commands::PUT.exec(client, state, "testing/#{basename}")
+    state.pwd = prev_pwd
     $stdout = real_stdout
     `rm -rf testing`
   end
