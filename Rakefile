@@ -65,10 +65,11 @@ task :build do
 
   def build_page
     gemspec = IO.read('droxi.gemspec')
+    main = IO.read('lib/droxi.rb')
 
     contents = format(IO.read('droxi.1.template'),
                       date: date(gemspec),
-                      version: gemspec[/\d+\.\d+\.\d+/],
+                      version: main[/\d+\.\d+\.\d+/],
                       commands: commands)
 
     IO.write('build/droxi.1', contents)
