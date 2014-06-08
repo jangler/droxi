@@ -61,6 +61,22 @@ module Commands
     end
   end
 
+  # Print the contents of remote files.
+  CAT = Command.new(
+    'cat REMOTE_FILE...',
+    'Print the concatenated contents of remote files.',
+    lambda do |client, state, args|
+      extract_flags('cat', args, '')
+      state.expand_patterns(args).each do |path|
+        if path.is_a?(GlobError)
+          warn "cat: #{path}: no such file or directory"
+        else
+          puts client.get_file(path)
+        end
+      end
+    end
+  )
+
   # Change the remote working directory.
   CD = Command.new(
     'cd [REMOTE_DIR]',

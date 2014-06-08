@@ -9,6 +9,9 @@ Features include smart tab completion, globbing, and interactive help. If
 invoked without arguments, runs in interactive mode. If invoked with arguments,
 parses the arguments as a command invocation, executes the command, and exits.
 .SH COMMANDS
+.TP
+!STRING
+Pass a string to be executed by the local shell.
 %{commands}
 .SH OPTIONS
 .TP
