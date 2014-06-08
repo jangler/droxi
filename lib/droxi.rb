@@ -9,7 +9,7 @@ require_relative 'droxi/state'
 # Command-line Dropbox client module.
 module Droxi
   # Version number of the program.
-  VERSION = '0.1.1'
+  VERSION = '0.1.2'
 
   # Run the client.
   def self.run(args)

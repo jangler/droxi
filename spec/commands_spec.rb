@@ -32,35 +32,40 @@ describe Commands do
   end
 
   describe 'when executing the cd command' do
+    before do
+      @cd = proc do |*args|
+        capture_io { Commands::CD.exec(client, state, *args) }
+      end
+    end
+
     it 'must change to the root directory when given no args' do
       state.pwd = '/testing'
-      Commands::CD.exec(client, state)
+      @cd.call
       state.pwd.must_equal '/'
     end
 
     it 'must change to the stated directory when given 1 arg' do
       state.pwd = '/'
-      Commands::CD.exec(client, state, '/testing')
+      @cd.call('/testing')
       state.pwd.must_equal '/testing'
     end
 
     it 'must change and set previous directory correctly' do
       state.pwd = '/testing'
       state.pwd = '/'
-      Commands::CD.exec(client, state, '-')
+      @cd.call('-')
       state.pwd.must_equal '/testing'
       state.oldpwd.must_equal '/'
     end
 
     it 'must not change to a bogus directory' do
       state.pwd = '/'
-      Commands::CD.exec(client, state, '/bogus_dir')
+      @cd.call('/bogus_dir')
       state.pwd.must_equal '/'
     end
 
     it 'must fail with UsageError when given multiple args' do
-      proc { Commands::CD.exec(client, state, 'a', 'b') }
-        .must_raise Commands::UsageError
+      proc { @cd.call('a', 'b') }.must_raise Commands::UsageError
     end
   end
 
@@ -124,47 +129,52 @@ describe Commands do
   end
 
   describe 'when executing the debug command' do
+    before do
+      @debug = proc do |*args|
+        capture_io { Commands::DEBUG.exec(client, state, *args) }
+      end
+    end
+
     it 'must fail with an error message if debug mode is not enabled' do
       ARGV.clear
-      lines = TestUtils.output_of(Commands::DEBUG, :exec, client, state, '1')
-      lines.size.must_equal 1
-      lines.first.start_with?('debug: ').must_equal true
+      _, err = @debug.call('1')
+      err.lines.size.must_equal 1
+      err.start_with?('debug: ').must_equal true
     end
 
     it 'must evaluate the string if debug mode is enabled' do
       ARGV << '--debug'
-      TestUtils.output_of(Commands::DEBUG, :exec, client, state, '1')
-        .must_equal(['1'])
+      out, _ = @debug.call('1')
+      out.must_equal("1\n")
     end
 
     it 'must print the resulting exception if given exceptional input' do
       ARGV << '--debug'
-      lines = TestUtils.output_of(Commands::DEBUG, :exec, client, state, 'x')
-      lines.size.must_equal 1
-      lines.first.must_match(/^#<.+>$/)
+      _, err = @debug.call('x')
+      err.lines.size.must_equal 1
+      err.must_match(/^#<.+>$/)
     end
 
     it 'must fail with UsageError when given no args' do
-      proc { Commands::DEBUG.exec(client, state) }
-        .must_raise Commands::UsageError
+      proc { @debug.call }.must_raise Commands::UsageError
     end
   end
 
   describe 'when executing the forget command' do
     it 'must clear entire cache when given no arguments' do
-      Commands::LS.exec(client, state, '/')
+      capture_io { Commands::LS.exec(client, state, '/') }
       Commands::FORGET.exec(client, state)
       state.cache.empty?.must_equal true
     end
 
     it 'must accept multiple arguments' do
       args = %w(bogus1, bogus2)
-      TestUtils.output_of(Commands::FORGET, :exec, client, state, *args)
-        .size.must_equal 2
+      _, err = capture_io { Commands::FORGET.exec(client, state, *args) }
+      err.lines.size.must_equal 2
     end
 
     it 'must recursively clear contents of directory argument' do
-      Commands::LS.exec(client, state, '/', '/testing')
+      capture_io { Commands::LS.exec(client, state, '/', '/testing') }
       Commands::FORGET.exec(client, state, '/')
       state.cache.size.must_equal 1
     end
@@ -244,7 +254,7 @@ describe Commands do
     it 'must fail if given bogus directory name' do
       pwd = Dir.pwd
       oldpwd = state.local_oldpwd
-      Commands::LCD.exec(client, state, '/bogus_dir')
+      capture_io { Commands::LCD.exec(client, state, '/bogus_dir') }
       Dir.pwd.must_equal pwd
       state.local_oldpwd.must_equal oldpwd
       Dir.chdir(pwd)
@@ -252,60 +262,70 @@ describe Commands do
   end
 
   describe 'when executing the ls command' do
+    before do
+      @ls = proc do |*args|
+        capture_io { Commands::LS.exec(client, state, *args) }
+      end
+    end
+
     it 'must list the working directory contents when given no args' do
       TestUtils.exact_structure(client, state, 'test')
       state.pwd = '/testing'
-      TestUtils.output_of(Commands::LS, :exec, client, state)
-        .must_equal(['test  '])
+      out, _ = @ls.call
+      out.must_equal("test  \n")
     end
 
     it 'must list the stated directory contents when given args' do
       state.pwd = '/'
       TestUtils.exact_structure(client, state, 'test')
-      TestUtils.output_of(Commands::LS, :exec, client, state, '/testing')
-        .must_equal(['test  '])
+      out, _ = @ls.call('/testing')
+      out.must_equal("test  \n")
     end
 
     it 'must give a longer description with the -l option' do
       state.pwd = '/'
       TestUtils.exact_structure(client, state, 'test')
-      lines = TestUtils.output_of(Commands::LS, :exec, client, state,
-                                  '-l', '/testing')
-      lines.size.must_equal 1
-      lines.first[/d +0 \w{3} .\d \d\d:\d\d test/].wont_be_nil
+      out, _ = @ls.call('-l', '/testing')
+      out.lines.size.must_equal 1
+      out[/^d +0 \w{3} .\d \d\d:\d\d test$/].wont_be_nil
     end
 
     it 'must give an error message if trying to list a bogus file' do
-      lines = TestUtils.output_of(Commands::LS, :exec, client, state, 'bogus')
-      lines.size.must_equal 1
-      lines.first.start_with?('ls: ').must_equal true
+      _, err = @ls.call('bogus')
+      err.lines.size.must_equal 1
+      err.start_with?('ls: ').must_equal true
     end
   end
 
   describe 'when executing the media command' do
+    before do
+      @media = proc do |*args|
+        capture_io { Commands::MEDIA.exec(client, state, *args) }
+      end
+    end
+
     it 'must yield URL when given file path' do
       TestUtils.structure(client, state, 'test.txt')
       path = '/testing/test.txt'
-      lines = TestUtils.output_of(Commands::MEDIA, :exec, client, state, path)
-      lines.size.must_equal 1
-      %r{https://.+\..+/}.match(lines.first).wont_be_nil
+      out, _ = @media.call(path)
+      out.lines.size.must_equal 1
+      %r{https://.+\..+/}.match(out).wont_be_nil
     end
 
     it 'must fail with error when given directory path' do
-      _, err = capture_io { Commands::MEDIA.exec(client, state, '/testing') }
+      _, err = @media.call('/testing')
       err.lines.size.must_equal 1
       %r{https://.+\..+/}.match(err).must_be_nil
     end
 
     it 'must fail with UsageError when given no args' do
-      proc { Commands::MEDIA.exec(client, state) }
-        .must_raise Commands::UsageError
+      proc { @media.call }.must_raise Commands::UsageError
     end
 
     it 'must give an error message if trying to link a bogus file' do
-      lines = TestUtils.output_of(Commands::MEDIA, :exec, client, state, '%')
-      lines.size.must_equal 1
-      lines.first.start_with?('media: ').must_equal true
+      _, err = @media.call('%')
+      err.lines.size.must_equal 1
+      err.start_with?('media: ').must_equal true
     end
   end
 
@@ -438,30 +458,40 @@ describe Commands do
   end
 
   describe 'when executing the share command' do
+    before do
+      @share = proc do |*args|
+        capture_io { Commands::SHARE.exec(client, state, *args) }
+      end
+    end
+
     it 'must yield URL when given file path' do
       TestUtils.structure(client, state, 'test.txt')
-      lines = TestUtils.output_of(Commands::SHARE, :exec, client, state,
-                                  '/testing/test.txt')
-      lines.size.must_equal 1
-      %r{https://.+\..+/}.match(lines.first).wont_be_nil
+      out, _ = @share.call('/testing/test.txt')
+      out.lines.size.must_equal 1
+      %r{https://.+\..+/}.match(out).wont_be_nil
     end
 
     it 'must fail with UsageError when given no args' do
-      proc { Commands::SHARE.exec(client, state) }
-        .must_raise Commands::UsageError
+      proc { @share.call }.must_raise Commands::UsageError
     end
 
     it 'must give an error message if trying to share a bogus file' do
-      lines = TestUtils.output_of(Commands::SHARE, :exec, client, state, '%')
-      lines.size.must_equal 1
-      lines.first.start_with?('share: ').must_equal true
+      _, err = @share.call('%')
+      err.lines.size.must_equal 1
+      err.start_with?('share: ').must_equal true
     end
   end
 
   describe 'when executing the rm command' do
+    before do
+      @rm = proc do |*args|
+        capture_io { Commands::RM.exec(client, state, *args) }
+      end
+    end
+
     it 'must remove the remote file when given args' do
       TestUtils.structure(client, state, 'test.txt')
-      Commands::RM.exec(client, state, '/testing/test.txt')
+      @rm.call('/testing/test.txt')
       state.metadata('/testing/test.txt').must_be_nil
     end
 
@@ -474,57 +504,68 @@ describe Commands do
     end
 
     it 'must fail with UsageError when given no args' do
-      proc { Commands::RM.exec(client, state) }
-        .must_raise Commands::UsageError
+      proc { @rm.call }.must_raise Commands::UsageError
     end
 
     it 'must give an error message if trying to remove a bogus file' do
-      lines = TestUtils.output_of(Commands::RM, :exec, client, state, 'bogus')
-      lines.size.must_equal 1
-      lines.first.start_with?('rm: ').must_equal true
+      _, err = @rm.call('bogus')
+      err.lines.size.must_equal 1
+      err.start_with?('rm: ').must_equal true
     end
 
     it 'must give error message if trying to remove dir without -r option' do
       TestUtils.structure(client, state, 'test')
-      lines = TestUtils.output_of(Commands::RM, :exec, client, state,
-                                  '/testing/test')
-      lines.size.must_equal 1
-      lines.first.start_with?('rm: ').must_equal true
+      _, err = @rm.call('/testing/test')
+      err.lines.size.must_equal 1
+      err.start_with?('rm: ').must_equal true
     end
 
     it 'must remove dir recursively when given -r option' do
       TestUtils.structure(client, state, 'test', 'test/dir', 'test/file.txt')
-      Commands::RM.exec(client, state, '-r', '/testing/test')
+      @rm.call('-r', '/testing/test')
       paths = %w(/testing/test /testing/test/dir /testing/test/file.txt)
       paths.each { |path| state.metadata(path).must_be_nil }
     end
   end
 
   describe 'when executing the help command' do
+    before do
+      @help = proc do |*args|
+        capture_io { Commands::HELP.exec(client, state, *args) }
+      end
+    end
+
     it 'must print a list of commands when given no args' do
-      TestUtils.output_of(Commands::HELP, :exec, client, state)
-        .join.split.size.must_equal Commands::NAMES.size
+      out, _ = @help.call
+      out.split.size.must_equal Commands::NAMES.size
     end
 
     it 'must print help for a command when given it as an arg' do
-      lines = TestUtils.output_of(Commands::HELP, :exec, client, state, 'help')
-      lines.size.must_be :>=, 2
-      lines.first.must_equal Commands::HELP.usage
-      lines.drop(1).join(' ').must_equal Commands::HELP.description
+      out, _ = @help.call('help')
+      out.lines.size.must_be :>=, 2
+      out.lines.first.chomp.must_equal Commands::HELP.usage
+      out.lines.drop(1).join(' ').tr("\n", '')
+        .must_equal Commands::HELP.description
     end
 
     it 'must print an error message if given a bogus name as an arg' do
-      TestUtils.output_of(Commands::HELP, :exec, client, state, 'bogus')
-        .size.must_equal 1
+      _, err = @help.call('bogus')
+      err.lines.size.must_equal 1
+      err.start_with?('help: ').must_equal true
     end
 
     it 'must fail with UsageError when given multiple args' do
-      proc { Commands::HELP.exec(client, state, 'a', 'b') }
-        .must_raise Commands::UsageError
+      proc { @help.call('a', 'b') }.must_raise Commands::UsageError
     end
   end
 
   describe 'when executing the rmdir command' do
+    before do
+      @rmdir = proc do |*args|
+        capture_io { Commands::RMDIR.exec(client, state, *args) }
+      end
+    end
+
     it 'must remove remote directories if empty' do
       TestUtils.exact_structure(client, state, 'dir1', 'dir2')
       Commands::RMDIR.exec(client, state, '/testing/dir?')
@@ -534,31 +575,27 @@ describe Commands do
 
     it 'must fail with error if remote directory not empty' do
       TestUtils.structure(client, state, 'test', 'test/file.txt')
-      lines = TestUtils.output_of(Commands::RMDIR, :exec, client, state,
-                                  '/testing/test')
-      lines.size.must_equal 1
-      lines.first.start_with?('rmdir: ').must_equal true
+      _, err = @rmdir.call('/testing/test')
+      err.lines.size.must_equal 1
+      err.start_with?('rmdir: ').must_equal true
     end
 
     it 'must fail with error if used on file' do
       TestUtils.structure(client, state, 'test.txt')
-      lines = TestUtils.output_of(Commands::RMDIR, :exec, client, state,
-                                  '/testing/test.txt')
-      lines.size.must_equal 1
-      lines.first.start_with?('rmdir: ').must_equal true
+      _, err = @rmdir.call('/testing/test.txt')
+      err.lines.size.must_equal 1
+      err.start_with?('rmdir: ').must_equal true
     end
 
     it 'must fail with error if given bogus name' do
       TestUtils.not_structure(client, state, 'bogus')
-      lines = TestUtils.output_of(Commands::RMDIR, :exec, client, state,
-                                  '/testing/bogus')
-      lines.size.must_equal 1
-      lines.first.start_with?('rmdir: ').must_equal true
+      _, err = @rmdir.call('/testing/bogus')
+      err.lines.size.must_equal 1
+      err.start_with?('rmdir: ').must_equal true
     end
 
     it 'must fail with UsageError when given no args' do
-      proc { Commands::RMDIR.exec(client, state) }
-        .must_raise Commands::UsageError
+      proc { @rmdir.call }.must_raise Commands::UsageError
     end
   end
 
@@ -582,8 +619,8 @@ describe Commands do
     end
 
     it "must execute a command when given the command's name" do
-      proc { Commands.exec('lcd ~bogus', client, state) }
-        .must_output "lcd: ~bogus: no such file or directory\n"
+      _, err = capture_io { Commands.exec('lcd ~bogus', client, state) }
+      err.must_equal "lcd: ~bogus: no such file or directory\n"
     end
 
     it 'must do nothing when given an empty string' do
@@ -597,13 +634,13 @@ describe Commands do
     end
 
     it 'must give a usage error message for incorrect arg count' do
-      out, _err = capture_io { Commands.exec('get', client, state) }
-      out.start_with?('Usage: ').must_equal true
+      _, err = capture_io { Commands.exec('get', client, state) }
+      err.start_with?('Usage: ').must_equal true
     end
 
     it 'must give an error message for invalid command name' do
-      out, _err = capture_io { Commands.exec('drink soda', client, state) }
-      out.start_with?('droxi: ').must_equal true
+      _, err = capture_io { Commands.exec('drink soda', client, state) }
+      err.start_with?('droxi: ').must_equal true
     end
   end
 
