@@ -20,22 +20,19 @@ module Commands
     attr_reader :description
 
     # Create a new +Command+ with the given metadata and a +Proc+ specifying
-    # its behavior. The +Proc+ will receive four arguments: the
-    # +DropboxClient+, the +State+, an +Array+ of command-line arguments, and
-    # a +Proc+ to be called for output.
+    # its behavior. The +Proc+ will receive three arguments: the
+    # +DropboxClient+, the +State+, and an +Array+ of command-line arguments.
     def initialize(usage, description, procedure)
       @usage = usage
       @description = description.squeeze(' ')
       @procedure = procedure
     end
 
-    # Attempt to execute the +Command+, yielding lines of output if a block is
-    # given. Raises a +UsageError+ if an invalid number of command-line
-    # arguments is given.
+    # Attempt to execute the +Command+. Raises a +UsageError+ if an invalid
+    # number of command-line arguments is given.
     def exec(client, state, *args)
       fail UsageError, @usage unless num_args_ok?(args.size)
-      block = proc { |line| yield line if block_given? }
-      @procedure.yield(client, state, args, block)
+      @procedure.yield(client, state, args)
     end
 
     # Return a +String+ describing the type of argument at the given index.
@@ -71,7 +68,7 @@ module Commands
      Dropbox root. With a remote directory name as the argument, changes to \
      that directory. With - as the argument, changes to the previous working \
      directory.",
-    lambda do |_client, state, args, output|
+    lambda do |_client, state, args|
       extract_flags('cd', args, '')
       case
       when args.empty? then state.pwd = '/'
@@ -81,7 +78,7 @@ module Commands
         if state.directory?(path)
           state.pwd = path
         else
-          output.call("cd: #{args.first}: no such directory")
+          warn "cd: #{args.first}: no such directory"
         end
       end
     end
@@ -95,7 +92,7 @@ module Commands
      final argument is a directory, copies each remote file or folder into \
      that directory. Will refuse to overwrite existing files unless invoked \
      with the -f option.",
-    lambda do |client, state, args, _output|
+    lambda do |client, state, args|
       cp_mv(client, state, args, 'cp')
     end
   )
@@ -106,16 +103,18 @@ module Commands
     "Evaluates the given string as Ruby code and prints the result. Won't \
      work unless the program was invoked with the --debug flag.",
     # rubocop:disable Lint/UnusedBlockArgument, Lint/Eval
-    lambda do |client, state, args, output|
+    lambda do |client, state, args|
       if ARGV.include?('--debug')
         begin
-          output.call(eval(args.join(' ')).inspect)
+          p eval(args.join(' '))
           # rubocop:enable Lint/UnusedBlockArgument, Lint/Eval
+        rescue SyntaxError => error
+          warn error
         rescue => error
-          output.call(error.inspect)
+          warn error.inspect
         end
       else
-        output.call('debug: not enabled.')
+        warn 'debug: not enabled.'
       end
     end
   )
@@ -124,7 +123,7 @@ module Commands
   EXIT = Command.new(
     'exit',
     'Exit the program.',
-    lambda do |_client, state, args, _output|
+    lambda do |_client, state, args|
       extract_flags('exit', args, '')
       state.exit_requested = true
     end
@@ -136,13 +135,13 @@ module Commands
     "Clear the client-side cache of remote filesystem metadata. With no \
      arguments, clear the entire cache. If given directories as arguments, \
      (recursively) clear the cache of those directories only.",
-    lambda do |_client, state, args, output|
+    lambda do |_client, state, args|
       extract_flags('forget', args, '')
       if args.empty?
         state.cache.clear
       else
         args.each do |arg|
-          state.forget_contents(arg) { |line| output.call(line) }
+          state.forget_contents(arg) { |line| warn line }
         end
       end
     end
@@ -154,7 +153,7 @@ module Commands
     "Download each specified remote file to a file of the same name in the \
      local working directory. Will refuse to overwrite existing files unless \
      invoked with the -f option.",
-    lambda do |client, state, args, _output|
+    lambda do |client, state, args|
       flags = extract_flags('get', args, '-f')
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
@@ -180,18 +179,18 @@ module Commands
     'help [COMMAND]',
     "Print usage and help information about a command. If no command is \
      given, print a list of commands instead.",
-    lambda do |_client, _state, args, output|
+    lambda do |_client, _state, args|
       extract_flags('help', args, '')
       if args.empty?
-        Text.table(NAMES).each { |line| output.call(line) }
+        Text.table(NAMES).each { |line| puts line }
       else
         cmd_name = args.first
         if NAMES.include?(cmd_name)
           cmd = const_get(cmd_name.upcase.to_s)
-          output.call(cmd.usage)
-          Text.wrap(cmd.description).each { |line| output.call(line) }
+          puts cmd.usage
+          Text.wrap(cmd.description).each { |line| puts line }
         else
-          output.call("Unrecognized command: #{cmd_name}")
+          warn "help: #{cmd_name}: no such command"
         end
       end
     end
@@ -204,7 +203,7 @@ module Commands
      home directory. With a local directory name as the argument, changes to \
      that directory. With - as the argument, changes to the previous working \
      directory.",
-    lambda do |_client, state, args, output|
+    lambda do |_client, state, args|
       extract_flags('lcd', args, '')
       path = case
              when args.empty? then File.expand_path('~')
@@ -221,7 +220,7 @@ module Commands
         state.local_oldpwd = Dir.pwd
         Dir.chdir(path)
       else
-        output.call("lcd: #{args.first}: no such file or directory")
+        warn "lcd: #{args.first}: no such file or directory"
       end
     end
   )
@@ -234,13 +233,13 @@ module Commands
      arguments, list the contents of the directories. When given remote files \
      as arguments, list the files. If the -l option is given, display \
      information about the files.",
-    lambda do |_client, state, args, output|
+    lambda do |_client, state, args|
       long = extract_flags('ls', args, '-l').include?('-l')
 
       files, dirs = [], []
       state.expand_patterns(args, true).each do |path|
         if path.is_a?(GlobError)
-          output.call("ls: #{path}: no such file or directory")
+          warn "ls: #{path}: no such file or directory"
         else
           type = state.directory?(path) ? dirs : files
           type << path
@@ -250,16 +249,16 @@ module Commands
       dirs << state.pwd if args.empty?
 
       # First list files.
-      list(state, files, files, long) { |line| output.call(line) }
-      output.call('') unless dirs.empty? || files.empty?
+      list(state, files, files, long) { |line| puts line }
+      puts unless dirs.empty? || files.empty?
 
       # Then list directory contents.
       dirs.each_with_index do |dir, i|
-        output.call(dir + ':') if dirs.size + files.size > 1
+        puts "#{dir}:" if dirs.size + files.size > 1
         contents = state.contents(dir)
         names = contents.map { |path| File.basename(path) }
-        list(state, contents, names, long) { |line| output.call(line) }
-        output.call('') if i < dirs.size - 1
+        list(state, contents, names, long) { |line| puts line }
+        puts if i < dirs.size - 1
       end
     end
   )
@@ -269,15 +268,15 @@ module Commands
     'media REMOTE_FILE...',
     "Create Dropbox links to publicly share remote files. The links are \
      time-limited and link directly to the files themselves.",
-    lambda do |client, state, args, output|
+    lambda do |client, state, args|
       extract_flags('media', args, '')
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
-          output.call("media: #{path}: no such file or directory")
+          warn "media: #{path}: no such file or directory"
         else
           try_and_handle(DropboxError) do
             url = client.media(path)['url']
-            output.call("#{File.basename(path)} -> #{url}")
+            puts "#{File.basename(path)} -> #{url}"
           end
         end
       end
@@ -288,7 +287,7 @@ module Commands
   MKDIR = Command.new(
     'mkdir REMOTE_DIR...',
     'Create remote directories.',
-    lambda do |client, state, args, _output|
+    lambda do |client, state, args|
       extract_flags('mkdir', args, '')
       args.each do |arg|
         try_and_handle(DropboxError) do
@@ -308,7 +307,7 @@ module Commands
      final argument is a directory, moves each remote file or folder into \
      that directory. Will refuse to overwrite existing files unless invoked \
      with the -f option.",
-    lambda do |client, state, args, _output|
+    lambda do |client, state, args|
       cp_mv(client, state, args, 'mv')
     end
   )
@@ -322,7 +321,7 @@ module Commands
      the -f option is given, in which case the remote file will be \
      overwritten. When given only a local file path, the remote path defaults \
      to a file of the same name in the remote working directory.",
-    lambda do |client, state, args, _output|
+    lambda do |client, state, args|
       flags = extract_flags('put', args, '-f')
       from_path = args.first
       to_path = (args.size == 2) ? args[1] : File.basename(from_path)
@@ -348,14 +347,14 @@ module Commands
     'rm [-r] REMOTE_FILE...',
     "Remove each specified remote file. If the -r option is given, will \
      also remove directories recursively.",
-    lambda do |client, state, args, output|
+    lambda do |client, state, args|
       flags = extract_flags('rm', args, '-r')
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
-          output.call("rm: #{path}: no such file or directory")
+          warn "rm: #{path}: no such file or directory"
         else
           if state.directory?(path) && !flags.include?('-r')
-            output.call("rm: #{path}: is a directory")
+            warn "rm: #{path}: is a directory"
             next
           end
           try_and_handle(DropboxError) do
@@ -372,19 +371,19 @@ module Commands
   RMDIR = Command.new(
     'rmdir REMOTE_DIR...',
     'Remove each specified empty remote directory.',
-    lambda do |client, state, args, output|
+    lambda do |client, state, args|
       extract_flags('rmdir', args, '')
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
-          output.call("rmdir: #{path}: no such file or directory")
+          warn "rmdir: #{path}: no such file or directory"
         else
           unless state.directory?(path)
-            output.call("rmdir: #{path}: not a directory")
+            warn "rmdir: #{path}: not a directory"
             next
           end
           contents = state.metadata(path)['contents']
           if contents && !contents.empty?
-            output.call("rmdir: #{path}: directory not empty")
+            warn "rmdir: #{path}: directory not empty"
             next
           end
           try_and_handle(DropboxError) do
@@ -404,15 +403,15 @@ module Commands
      shortened and direct to 'preview' pages of the files. Links created by \
      this method are set to expire far enough in the future so that \
      expiration is effectively not an issue.",
-    lambda do |client, state, args, output|
+    lambda do |client, state, args|
       extract_flags('share', args, '')
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
-          output.call("share: #{path}: no such file or directory")
+          warn "share: #{path}: no such file or directory"
         else
           try_and_handle(DropboxError) do
             url = client.shares(path)['url']
-            output.call("#{File.basename(path)} -> #{url}")
+            puts "#{File.basename(path)} -> #{url}"
           end
         end
       end
@@ -457,10 +456,10 @@ module Commands
         command = const_get(command_name.upcase.to_sym)
         command.exec(client, state, *args) { |line| puts line }
       rescue UsageError => error
-        puts "Usage: #{error}"
+        warn "Usage: #{error}"
       end
     else
-      puts "droxi: #{command_name}: command not found"
+      warn "droxi: #{command_name}: command not found"
     end
   end
 
@@ -495,8 +494,8 @@ module Commands
     yield error.to_s if block_given?
   end
 
-  # Return an +Array+ of paths from an +Array+ of globs, passing error messages
-  # to the output +Proc+ for non-matches.
+  # Return an +Array+ of paths from an +Array+ of globs, printing error
+  # messages if +output+ is true.
   def self.expand(state, paths, preserve_root, output, cmd)
     state.expand_patterns(paths, preserve_root).map do |item|
       if item.is_a?(GlobError)
@@ -514,8 +513,7 @@ module Commands
     state.cache.remove(path)
   end
 
-  # Copies or moves a file and passes a description of the operation to the
-  # output +Proc+.
+  # Copies or moves a file.
   def self.copy_move(method, args, flags, client, state)
     from_path, to_path = args.map { |p| state.resolve_path(p) }
     try_and_handle(DropboxError) do
