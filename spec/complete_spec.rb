@@ -68,7 +68,7 @@ describe Complete do
     it 'lists all remote files and end with correct char' do
       state.pwd = '/'
       entries = remote_contents(state, '/')
-      Complete.complete('put thing ', state).sort.must_equal entries.sort
+      Complete.complete('get thing ', state).sort.must_equal entries.sort
     end
   end
 

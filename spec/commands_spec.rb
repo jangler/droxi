@@ -148,6 +148,12 @@ describe Commands do
       out.must_equal("1\n")
     end
 
+    it 'must handle syntax errors' do
+      ARGV << '--debug'
+      _, err = @debug.call('"x')
+      err.lines.size.must_equal 1
+    end
+
     it 'must print the resulting exception if given exceptional input' do
       ARGV << '--debug'
       _, err = @debug.call('x')
@@ -410,28 +416,13 @@ describe Commands do
       end
     end
 
-    it 'must put a file of the same name when given 1 arg' do
-      TestUtils.not_structure(client, state, 'test.txt')
-      `echo hello > test.txt`
-      @put.call('test.txt')
-      `rm test.txt`
-      state.metadata('/testing/test.txt').wont_be_nil
-    end
-
-    it 'must put a file with the stated name when given 2 args' do
-      TestUtils.not_structure(client, state, 'dest.txt')
-      `echo hello > test.txt`
-      @put.call('test.txt', 'dest.txt')
-      `rm test.txt`
-      state.metadata('/testing/dest.txt').wont_be_nil
-    end
-
-    it 'must put file in directory if second arg is directory' do
-      TestUtils.not_structure(client, state, 'test.txt')
-      `touch test.txt`
-      @put.call('test.txt', '/testing')
-      `rm test.txt`
-      state.metadata('/testing/test.txt').wont_be_nil
+    it 'must put multiple files' do
+      TestUtils.not_structure(client, state, 'file1.txt', 'file2.txt')
+      `touch file1.txt file2.txt`
+      @put.call('file1.txt', 'file2.txt')
+      `rm file1.txt file2.txt`
+      state.metadata('/testing/file1.txt').wont_be_nil
+      state.metadata('/testing/file2.txt').wont_be_nil
     end
 
     it 'must not overwrite without -f option' do
@@ -574,7 +565,7 @@ describe Commands do
     end
 
     it 'must fail with error if remote directory not empty' do
-      TestUtils.structure(client, state, 'test', 'test/file.txt')
+      TestUtils.structure(client, state, 'test', 'test/subtest')
       _, err = @rmdir.call('/testing/test')
       err.lines.size.must_equal 1
       err.start_with?('rmdir: ').must_equal true
@@ -650,12 +641,12 @@ describe Commands do
     end
 
     it 'must return correct types for in-bounds indices' do
-      Commands::PUT.type_of_arg(0).must_equal 'LOCAL_FILE'
-      Commands::PUT.type_of_arg(1).must_equal 'REMOTE_FILE'
+      Commands::MV.type_of_arg(0).must_equal 'REMOTE_FILE'
+      Commands::MV.type_of_arg(1).must_equal 'REMOTE_FILE'
     end
 
     it 'must return last types for out-of-bounds index' do
-      Commands::PUT.type_of_arg(3).must_equal 'REMOTE_FILE'
+      Commands::PUT.type_of_arg(3).must_equal 'LOCAL_FILE'
     end
   end
 end

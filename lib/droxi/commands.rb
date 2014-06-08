@@ -314,29 +314,26 @@ module Commands
 
   # Upload a local file.
   PUT = Command.new(
-    'put [-f] LOCAL_FILE [REMOTE_FILE]',
-    "Upload a local file to a remote path. If the remote path names a \
-     directory, the file will be placed in that directory. If a remote file \
-     of the same name already exists, Dropbox will rename the upload unless \
+    'put [-f] LOCAL_FILE...',
+    "Upload local files to the remote working directory. If a remote file of \
+     the same name already exists, Dropbox will rename the upload unless the \
      the -f option is given, in which case the remote file will be \
-     overwritten. When given only a local file path, the remote path defaults \
-     to a file of the same name in the remote working directory.",
+     overwritten.",
     lambda do |client, state, args|
       flags = extract_flags('put', args, '-f')
-      from_path = args.first
-      to_path = (args.size == 2) ? args[1] : File.basename(from_path)
-      to_path = state.resolve_path(to_path)
-      to_path << "/#{from_path}" if state.directory?(to_path)
+      args.each do |arg|
+        to_path = state.resolve_path(File.basename(arg))
 
-      try_and_handle(StandardError) do
-        File.open(File.expand_path(from_path), 'rb') do |file|
-          if flags.include?('-f') && state.metadata(to_path)
-            client.file_delete(to_path)
-            state.cache.remove(to_path)
+        try_and_handle(StandardError) do
+          File.open(File.expand_path(arg), 'rb') do |file|
+            if flags.include?('-f') && state.metadata(to_path)
+              client.file_delete(to_path)
+              state.cache.remove(to_path)
+            end
+            data = client.put_file(to_path, file)
+            state.cache.add(data)
+            puts "#{arg} -> #{data['path']}"
           end
-          data = client.put_file(to_path, file)
-          state.cache.add(data)
-          puts "#{from_path} -> #{data['path']}"
         end
       end
     end
