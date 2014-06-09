@@ -20,7 +20,10 @@ module Droxi
     args.shift(options.size)
 
     args.empty? ? run_interactive(client, state) : invoke(args, client, state)
-
+  rescue DropboxAuthError => error
+    warn error
+    Settings.delete(:access_token)
+  ensure
     Settings.save
   end
 

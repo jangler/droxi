@@ -229,11 +229,8 @@ module Commands
 
             size = rev['size'].sub(/ (.)B/, '\1').sub(' bytes', '').rjust(7)
             mtime = Time.parse(rev['modified'])
-            format_str = if mtime.year == Time.now.year
-                           '%b %e %H:%M'
-                         else
-                           '%b %e  %Y'
-                         end
+            current_year = (mtime.year == Time.now.year)
+            format_str = current_year ? '%b %e %H:%M' : '%b %e  %Y'
             puts "#{size} #{mtime.strftime(format_str)} #{rev['rev']}"
           end
         end
