@@ -5,11 +5,20 @@ require_relative 'droxi/commands'
 require_relative 'droxi/complete'
 require_relative 'droxi/settings'
 require_relative 'droxi/state'
+require_relative 'droxi/text'
 
 # Command-line Dropbox client module.
 module Droxi
   # Version number of the program.
-  VERSION = '0.1.3'
+  VERSION = '0.2.0'
+
+  # Message to display when invoked with the --help option.
+  HELP_TEXT =
+    "If you've installed this program using Rake or the AUR package, you " \
+    'should also have the man page installed on your system. `man droxi` ' \
+    "should do the trick. Otherwise--meaning you've probably installed it " \
+    "as a Ruby gem--you don't, which is a shame. In that case, you can " \
+    'access the man page at http://jangler.info/man/droxi in HTML form.'
 
   # Run the client.
   def self.run(args)
@@ -33,10 +42,9 @@ module Droxi
   # +Array+ of the extracted options.
   def self.handle_options(args)
     options = args.take_while { |s| s.start_with?('--') }
-    if options.include?('--version')
-      puts "droxi v#{VERSION}"
-      exit
-    end
+    puts "droxi v#{VERSION}" if options.include?('--version')
+    Text.wrap(HELP_TEXT).each { |s| puts s } if options.include?('--help')
+    exit if %w(--help --version).any? { |s| options.include?(s) }
     options
   end
 
