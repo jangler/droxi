@@ -18,7 +18,13 @@ Pass a string to be executed by the local shell.
 --debug
 Enable the 'debug' command for the session.
 .TP
+--help
+Print help information and exit.
+.TP
 --version
 Print version information and exit.
+.SH BUGS
+If you find one, please use https://github.com/jangler/droxi/issues to report
+it, or contact me via email.
 .SH AUTHOR
 Written by Brandon Mulcahy (brandon@jangler.info).

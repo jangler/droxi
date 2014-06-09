@@ -257,6 +257,30 @@ describe Commands do
     end
   end
 
+  describe 'when executing the history command' do
+    before do
+      state.pwd = TestUtils::TEST_ROOT
+      @history = proc do |*args|
+        capture_io { Commands::HISTORY.exec(client, state, *args) }
+      end
+    end
+
+    it 'must give the revision history of a given file' do
+      TestUtils.structure(client, state, 'test.txt')
+      out, _ = @history.call('test.txt')
+      out.lines.size.must_be :>=, 1
+    end
+
+    it 'must fail when given a bogus filename or directory name' do
+      TestUtils.structure(client, state, 'test')
+      %w(bogus test).each do |arg|
+        _, err = @history.call(arg)
+        err.lines.size.must_equal 1
+        err.start_with?('history: ').must_equal true
+      end
+    end
+  end
+
   describe 'when executing the lcd command' do
     it 'must change to home directory when given no args' do
       prev_pwd = Dir.pwd
@@ -478,6 +502,32 @@ describe Commands do
     end
   end
 
+  describe 'when executing the restore command' do
+    before do
+      state.pwd = TestUtils::TEST_ROOT
+      @restore = proc do |*args|
+        capture_io { Commands::RESTORE.exec(client, state, *args) }
+      end
+    end
+
+    it 'must set the revision of a file' do
+      TestUtils.structure(client, state, 'test.txt')
+      out, _ = capture_io { Commands::HISTORY.exec(client, state, 'test.txt') }
+      rev = out.split.last
+      _, err = @restore.call('test.txt', rev)
+      err.must_be :empty?
+    end
+
+    it 'must fail when given a bogus filename or directory name' do
+      TestUtils.structure(client, state, 'test')
+      %w(bogus test).each do |arg|
+        _, err = @restore.call(arg, 'n/a')
+        err.lines.size.must_equal 1
+        err.start_with?('restore: ').must_equal true
+      end
+    end
+  end
+
   describe 'when executing the share command' do
     before do
       @share = proc do |*args|
@@ -486,8 +536,8 @@ describe Commands do
     end
 
     it 'must yield URL when given file path' do
-      TestUtils.structure(client, state, 'test.txt')
-      out, _ = @share.call('/testing/test.txt')
+      TestUtils.structure(client, state, 'share.txt')
+      out, _ = @share.call('/testing/share.txt')
       out.lines.size.must_equal 1
       %r{https://.+\..+/}.match(out).wont_be_nil
     end
@@ -511,17 +561,16 @@ describe Commands do
     end
 
     it 'must remove the remote file when given args' do
-      TestUtils.structure(client, state, 'test.txt')
-      @rm.call('/testing/test.txt')
-      state.metadata('/testing/test.txt').must_be_nil
+      TestUtils.structure(client, state, 'file.txt')
+      @rm.call('/testing/file.txt')
+      state.metadata('/testing/file.txt').must_be_nil
     end
 
     it 'must change pwd to existing dir if the current one is removed' do
-      # FIXME: I don't know why this test fails. It works in practice.
-      # TestUtils.structure(client, state, 'one', 'one/two')
-      # Commands::CD.exec(client, state, '/testing/one/two')
-      # Commands::RM.exec(client, state, '..')
-      # state.pwd.must_equal('/testing')
+      TestUtils.structure(client, state, 'one', 'one/two')
+      Commands::CD.exec(client, state, '/testing/one/two')
+      Commands::RM.exec(client, state, '-r', '..')
+      state.pwd.must_equal('/testing')
     end
 
     it 'must fail with UsageError when given no args' do
@@ -546,6 +595,29 @@ describe Commands do
       @rm.call('-r', '/testing/test')
       paths = %w(/testing/test /testing/test/dir /testing/test/file.txt)
       paths.each { |path| state.metadata(path).must_be_nil }
+    end
+  end
+
+  describe 'when executing the search command' do
+    before do
+      state.pwd = TestUtils::TEST_ROOT
+      @search = proc do |*args|
+        capture_io { Commands::SEARCH.exec(client, state, *args) }
+      end
+    end
+
+    it 'must list files iff they match the given substrings' do
+      TestUtils.exact_structure(client, state,
+                                'hello.txt', 'world.txt',
+                                'hi.txt', 'hello.md')
+      out, _ = @search.call('.', 'o', 'txt')
+      out.split("\n").must_equal ['/testing/hello.txt', '/testing/world.txt']
+    end
+
+    it 'must fail if given a bogus directory name' do
+      _, err = @search.call('bogus', 'substring')
+      err.lines.size.must_equal 1
+      err.start_with?('search: ').must_equal true
     end
   end
 

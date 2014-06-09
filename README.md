@@ -28,7 +28,8 @@ features
   [GNU ftp](http://www.gnu.org/software/inetutils/), and
   [lftp](http://lftp.yar.ru/)
 - context-sensitive tab completion and path globbing
-- upload, download, organize, and share files
+- upload, download, organize, search, and share files
+- file revision control
 - man page and interactive help
 
 developer features

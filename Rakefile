@@ -80,6 +80,11 @@ task :build do
   build_page
 end
 
+desc 'build html version of man page'
+task :html do
+  sh 'groff -man -T html build/droxi.1 > build/droxi.html'
+end
+
 PREFIX = ENV['PREFIX'] || ENV['prefix'] || '/usr/local'
 BIN_PATH = "#{PREFIX}/bin"
 MAN_PATH = "#{PREFIX}/share/man/man1"

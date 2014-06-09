@@ -212,6 +212,32 @@ module Commands
     end
   )
 
+  # Get remote file revisions.
+  HISTORY = Command.new(
+    'history REMOTE_FILE',
+    "Print a list of revisions for a remote file. The file can be restored to \
+     a previous revision using the 'restore' command and a revision ID given \
+     by this command.",
+    lambda do |client, state, args|
+      extract_flags('history', args, '')
+      path = state.resolve_path(args.first)
+      if !state.metadata(path) || state.directory?(path)
+        warn "history: #{args.first}: no such file"
+      else
+        try_and_handle(DropboxError) do
+          client.revisions(path).each do |rev|
+
+            size = rev['size'].sub(/ (.)B/, '\1').sub(' bytes', '').rjust(7)
+            mtime = Time.parse(rev['modified'])
+            current_year = (mtime.year == Time.now.year)
+            format_str = current_year ? '%b %e %H:%M' : '%b %e  %Y'
+            puts "#{size} #{mtime.strftime(format_str)} #{rev['rev']}"
+          end
+        end
+      end
+    end
+  )
+
   # Change the local working directory.
   LCD = Command.new(
     'lcd [LOCAL_DIR]',
@@ -355,6 +381,24 @@ module Commands
     end
   )
 
+  # Restore a remove file to a previous version.
+  RESTORE = Command.new(
+    'restore REMOTE_FILE REVISION_ID',
+    "Restore a remote file to a previous version. Use the 'history' command \
+     to get a list of IDs for previous revisions of the file.",
+    lambda do |client, state, args|
+      extract_flags('restore', args, '')
+      path = state.resolve_path(args.first)
+      if !state.metadata(path) || state.directory?(path)
+        warn "restore: #{args.first}: no such file"
+      else
+        try_and_handle(DropboxError) do
+          client.restore(path, args.last)
+        end
+      end
+    end
+  )
+
   # Remove remote files.
   RM = Command.new(
     'rm [-r] REMOTE_FILE...',
@@ -406,6 +450,25 @@ module Commands
         end
       end
       check_pwd(state)
+    end
+  )
+
+  # Search for remote files.
+  SEARCH = Command.new(
+    'search REMOTE_DIR SUBSTRING...',
+    "List remote files in a directory or its subdirectories with names that \
+     contain all given substrings.",
+    lambda do |client, state, args|
+      extract_flags('search', args, '')
+      path = state.resolve_path(args.first)
+      unless state.directory?(path)
+        warn "search: #{args.first}: no such directory"
+        return
+      end
+      query = args.drop(1).join(' ')
+      try_and_handle(DropboxError) do
+        client.search(path, query).each { |result| puts result['path'] }
+      end
     end
   )
 
