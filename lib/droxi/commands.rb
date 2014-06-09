@@ -456,8 +456,8 @@ module Commands
   # Search for remote files.
   SEARCH = Command.new(
     'search REMOTE_DIR SUBSTRING...',
-    "List remote files in a directory with names that contain all the given \
-     substrings.",
+    "List remote files in a directory or its subdirectories with names that \
+     contain all given substrings.",
     lambda do |client, state, args|
       extract_flags('search', args, '')
       path = state.resolve_path(args.first)

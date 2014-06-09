@@ -536,8 +536,8 @@ describe Commands do
     end
 
     it 'must yield URL when given file path' do
-      TestUtils.structure(client, state, 'test.txt')
-      out, _ = @share.call('/testing/test.txt')
+      TestUtils.structure(client, state, 'share.txt')
+      out, _ = @share.call('/testing/share.txt')
       out.lines.size.must_equal 1
       %r{https://.+\..+/}.match(out).wont_be_nil
     end
@@ -561,17 +561,16 @@ describe Commands do
     end
 
     it 'must remove the remote file when given args' do
-      TestUtils.structure(client, state, 'test.txt')
-      @rm.call('/testing/test.txt')
-      state.metadata('/testing/test.txt').must_be_nil
+      TestUtils.structure(client, state, 'file.txt')
+      @rm.call('/testing/file.txt')
+      state.metadata('/testing/file.txt').must_be_nil
     end
 
     it 'must change pwd to existing dir if the current one is removed' do
-      # FIXME: I don't know why this test fails. It works in practice.
-      # TestUtils.structure(client, state, 'one', 'one/two')
-      # Commands::CD.exec(client, state, '/testing/one/two')
-      # Commands::RM.exec(client, state, '..')
-      # state.pwd.must_equal('/testing')
+      TestUtils.structure(client, state, 'one', 'one/two')
+      Commands::CD.exec(client, state, '/testing/one/two')
+      Commands::RM.exec(client, state, '-r', '..')
+      state.pwd.must_equal('/testing')
     end
 
     it 'must fail with UsageError when given no args' do
