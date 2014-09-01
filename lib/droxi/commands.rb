@@ -39,7 +39,7 @@ module Commands
     # If the index is out of range, return the type of the final argument. If
     # the +Command+ takes no arguments, return +nil+.
     def type_of_arg(index)
-      args = @usage.split.drop(1).reject { |arg| arg.include?('-') }
+      args = @usage.gsub(/\[-.+?\]/, '').split.drop(1)
       return nil if args.empty?
       index = [index, args.size - 1].min
       args[index].tr('[].', '')
@@ -51,7 +51,7 @@ module Commands
     # command, +false+ otherwise.
     def num_args_ok?(num_args)
       args = @usage.split.drop(1)
-      min_args = args.reject { |arg| arg.start_with?('[') }.size
+      min_args = args.reject { |arg| arg[/[\[\]]/] }.size
       max_args = if args.any? { |arg| arg.end_with?('...') }
                    num_args
                  else
@@ -66,7 +66,7 @@ module Commands
     'cat REMOTE_FILE...',
     'Print the concatenated contents of remote files.',
     lambda do |client, state, args|
-      extract_flags('cat', args, '')
+      extract_flags(CAT.usage, args, {})
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           warn "cat: #{path}: no such file or directory"
@@ -85,7 +85,7 @@ module Commands
      that directory. With - as the argument, changes to the previous working \
      directory.",
     lambda do |_client, state, args|
-      extract_flags('cd', args, '')
+      extract_flags(CD.usage, args, {})
       case
       when args.empty? then state.pwd = '/'
       when args.first == '-' then state.pwd = state.oldpwd
@@ -109,7 +109,7 @@ module Commands
      that directory. Will refuse to overwrite existing files unless invoked \
      with the -f option.",
     lambda do |client, state, args|
-      cp_mv(client, state, args, 'cp')
+      cp_mv(client, state, args, 'cp', CP.usage)
     end
   )
 
@@ -140,7 +140,7 @@ module Commands
     'exit',
     'Exit the program.',
     lambda do |_client, state, args|
-      extract_flags('exit', args, '')
+      extract_flags(EXIT.usage, args, {})
       state.exit_requested = true
     end
   )
@@ -152,7 +152,7 @@ module Commands
      arguments, clear the entire cache. If given directories as arguments, \
      (recursively) clear the cache of those directories only.",
     lambda do |_client, state, args|
-      extract_flags('forget', args, '')
+      extract_flags(FORGET.usage, args, {})
       if args.empty?
         state.cache.clear
       else
@@ -170,7 +170,8 @@ module Commands
      local working directory. Will refuse to overwrite existing files unless \
      invoked with the -f option.",
     lambda do |client, state, args|
-      flags = extract_flags('get', args, '-f')
+      flags = extract_flags(GET.usage, args, '-f' => 0)
+
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           warn "get: #{path}: no such file or directory"
@@ -196,7 +197,7 @@ module Commands
     "Print usage and help information about a command. If no command is \
      given, print a list of commands instead.",
     lambda do |_client, _state, args|
-      extract_flags('help', args, '')
+      extract_flags(HELP.usage, args, {})
       if args.empty?
         Text.table(NAMES).each { |line| puts line }
       else
@@ -219,7 +220,7 @@ module Commands
      a previous revision using the 'restore' command and a revision ID given \
      by this command.",
     lambda do |client, state, args|
-      extract_flags('history', args, '')
+      extract_flags(HISTORY.usage, args, {})
       path = state.resolve_path(args.first)
       if !state.metadata(path) || state.directory?(path)
         warn "history: #{args.first}: no such file"
@@ -246,7 +247,7 @@ module Commands
      that directory. With - as the argument, changes to the previous working \
      directory.",
     lambda do |_client, state, args|
-      extract_flags('lcd', args, '')
+      extract_flags(LCD.usage, args, {})
       path = case
              when args.empty? then File.expand_path('~')
              when args.first == '-' then state.local_oldpwd
@@ -276,7 +277,7 @@ module Commands
      as arguments, list the files. If the -l option is given, display \
      information about the files.",
     lambda do |_client, state, args|
-      long = extract_flags('ls', args, '-l').include?('-l')
+      long = extract_flags(LS.usage, args, '-l' => 0).include?('-l')
 
       files, dirs = [], []
       state.expand_patterns(args, true).each do |path|
@@ -311,7 +312,7 @@ module Commands
     "Create Dropbox links to publicly share remote files. The links are \
      time-limited and link directly to the files themselves.",
     lambda do |client, state, args|
-      extract_flags('media', args, '')
+      extract_flags(MEDIA.usage, args, {})
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           warn "media: #{path}: no such file or directory"
@@ -330,7 +331,7 @@ module Commands
     'mkdir REMOTE_DIR...',
     'Create remote directories.',
     lambda do |client, state, args|
-      extract_flags('mkdir', args, '')
+      extract_flags(MKDIR.usage, args, {})
       args.each do |arg|
         try_and_handle(DropboxError) do
           path = state.resolve_path(arg)
@@ -350,19 +351,33 @@ module Commands
      that directory. Will refuse to overwrite existing files unless invoked \
      with the -f option.",
     lambda do |client, state, args|
-      cp_mv(client, state, args, 'mv')
+      cp_mv(client, state, args, 'mv', MV.usage)
     end
   )
 
   # Upload a local file.
   PUT = Command.new(
-    'put [-f] LOCAL_FILE...',
+    'put [-f] [-O REMOTE_DIR] LOCAL_FILE...',
     "Upload local files to the remote working directory. If a remote file of \
      the same name already exists, Dropbox will rename the upload unless the \
      the -f option is given, in which case the remote file will be \
-     overwritten.",
+     overwritten. If the -O option is given, the files will be uploaded to \
+     the given directory instead of the current directory.",
     lambda do |client, state, args|
-      flags = extract_flags('put', args, '-f')
+      flags = extract_flags(PUT.usage, args, '-f' => 0, '-O' => 1)
+
+      dest_index = flags.find_index('-O')
+      dest_path = nil
+      unless dest_index.nil?
+        dest_path = flags[dest_index + 1]
+        if state.directory?(dest_path)
+          state.pwd = state.resolve_path(dest_path)
+        else
+          warn "put: #{dest_path}: no such directory"
+          return
+        end
+      end
+
       args.each do |arg|
         to_path = state.resolve_path(File.basename(arg))
 
@@ -378,6 +393,8 @@ module Commands
           end
         end
       end
+
+      state.pwd = state.oldpwd unless dest_path.nil?
     end
   )
 
@@ -387,7 +404,7 @@ module Commands
     "Restore a remote file to a previous version. Use the 'history' command \
      to get a list of IDs for previous revisions of the file.",
     lambda do |client, state, args|
-      extract_flags('restore', args, '')
+      extract_flags(RESTORE.usage, args, {})
       path = state.resolve_path(args.first)
       if !state.metadata(path) || state.directory?(path)
         warn "restore: #{args.first}: no such file"
@@ -405,7 +422,7 @@ module Commands
     "Remove each specified remote file. If the -r option is given, will \
      also remove directories recursively.",
     lambda do |client, state, args|
-      flags = extract_flags('rm', args, '-r')
+      flags = extract_flags(RM.usage, args, '-r' => 0)
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           warn "rm: #{path}: no such file or directory"
@@ -429,7 +446,7 @@ module Commands
     'rmdir REMOTE_DIR...',
     'Remove each specified empty remote directory.',
     lambda do |client, state, args|
-      extract_flags('rmdir', args, '')
+      extract_flags(RMDIR.usage, args, {})
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           warn "rmdir: #{path}: no such file or directory"
@@ -459,7 +476,7 @@ module Commands
     "List remote files in a directory or its subdirectories with names that \
      contain all given substrings.",
     lambda do |client, state, args|
-      extract_flags('search', args, '')
+      extract_flags(SEARCH.usage, args, {})
       path = state.resolve_path(args.first)
       unless state.directory?(path)
         warn "search: #{args.first}: no such directory"
@@ -480,7 +497,7 @@ module Commands
      this method are set to expire far enough in the future so that \
      expiration is effectively not an issue.",
     lambda do |client, state, args|
-      extract_flags('share', args, '')
+      extract_flags(SHARE.usage, args, {})
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           warn "share: #{path}: no such file or directory"
@@ -602,8 +619,8 @@ module Commands
   end
 
   # Execute a 'mv' or 'cp' operation depending on arguments given.
-  def self.cp_mv(client, state, args, cmd)
-    flags = extract_flags(cmd, args, '-f')
+  def self.cp_mv(client, state, args, cmd, usage)
+    flags = extract_flags(usage, args, '-f' => 0)
     sources = expand(state, args.take(args.size - 1), true, true, cmd)
     method = (cmd == 'cp') ? :file_copy : :file_move
     dest = state.resolve_path(args.last)
@@ -635,17 +652,44 @@ module Commands
     (state.pwd = File.dirname(state.pwd)) until state.metadata(state.pwd)
   end
 
+  # def self.extract_flags(@usage, cmd, args, valid_flags)
+  #   tokens = args.take_while { |s| s[/^-\w+$/] }
+  #   args.shift(tokens.size)
+
+  #   # Process compound flags like -rf into -r, -f.
+  #   flags = tokens.join.chars.uniq.drop(1).map { |c| "-#{c}" }
+  #   invalid_flags = flags.reject { |f| valid_flags[f[1]] }
+  #   invalid_flags.each { |f| warn "#{cmd}: #{f}: invalid option" }
+  #   flags
+  # end
+
   # Removes flags (e.g. -f) from the +Array+ and returns an +Array+ of the
   # removed flags. Prints warnings if the flags are not in the given +String+
   # of valid flags (e.g. '-rf').
-  def self.extract_flags(cmd, args, valid_flags)
-    tokens = args.take_while { |s| s[/^-\w+$/] }
-    args.shift(tokens.size)
+  def self.extract_flags(usage, args, flags)
+    extracted, index = [], 0
+    while index < args.size
+      arg = args[index]
+      extracted_flags =
+        arg[/^-\w/] ? extract_flag(usage, args, flags, arg, index) : nil
+      extracted += extracted_flags unless extracted_flags.nil?
+      index += 1 if extracted_flags.nil? || extracted_flags.empty?
+    end
+    args.delete_if { |a| a[/^-\w/] }
+    extracted
+  end
 
-    # Process compound flags like -rf into -r, -f.
-    flags = tokens.join.chars.uniq.drop(1).map { |c| "-#{c}" }
-    invalid_flags = flags.reject { |f| valid_flags[f[1]] }
-    invalid_flags.each { |f| warn "#{cmd}: #{f}: invalid option" }
-    flags
+  # Removes a flag and its arugments from the +Array+ and returns an +Array+ of
+  # the flag and its arguments. Prints warnings if the given flag is invalid.
+  def self.extract_flag(usage, args, flags, arg, index)
+    num_args = flags[arg]
+    if num_args.nil?
+      fail UsageError, usage
+    else
+      if index + num_args < args.size
+        return (num_args + 1).times.map { args.delete_at(index) }
+      end
+      fail UsageError, usage
+    end
   end
 end
