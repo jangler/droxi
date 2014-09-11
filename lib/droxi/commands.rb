@@ -387,7 +387,14 @@ module Commands
               client.file_delete(to_path)
               state.cache.remove(to_path)
             end
-            data = client.put_file(to_path, file)
+
+            # Chunked upload if file is more than 1M.
+            if file.size > 1024 * 1024
+              data = chunked_upload(client, to_path, file)
+            else
+              data = client.put_file(to_path, file)
+            end
+
             state.cache.add(data)
             puts "#{arg} -> #{data['path']}"
           end
@@ -690,6 +697,42 @@ module Commands
         return (num_args + 1).times.map { args.delete_at(index) }
       end
       fail UsageError, usage
+    end
+  end
+
+  # Attempts to upload a file to the server in chunks, displaying progress.
+  def self.chunked_upload(client, to_path, file)
+    uploader = DropboxClient::ChunkedUploader.new(client, file, file.size)
+    thread = Thread.new { monitor_upload(uploader, to_path) }
+    loop_upload(uploader, thread)
+    data = uploader.finish(to_path)
+    thread.join
+    print "\r" + (' ' * (18 + to_path.rpartition('/')[2].size)) + "\r"
+    data
+  end
+
+  # Continuously try to upload until successful or interrupted.
+  def self.loop_upload(uploader, monitor_thread)
+    while uploader.offset < uploader.total_size
+      begin
+        uploader.upload(1024 * 1024)
+      rescue DropboxError => error
+        puts "\n" + error.to_s
+      end
+    end
+  rescue Interrupt => error
+    monitor_thread.kill
+    raise error
+  end
+
+  # Displays real-time progress for the a being uploaded.
+  def self.monitor_upload(uploader, to_path)
+    filename = to_path.rpartition('/')[2]
+    loop do
+      percent = 100.0 * uploader.offset / uploader.total_size
+      printf("\rUploading %s: %.1f%%", filename, percent)
+      break if uploader.offset == uploader.total_size
+      sleep 1
     end
   end
 end
