@@ -357,14 +357,15 @@ module Commands
 
   # Upload a local file.
   PUT = Command.new(
-    'put [-f] [-O REMOTE_DIR] LOCAL_FILE...',
+    'put [-f] [-q] [-O REMOTE_DIR] LOCAL_FILE...',
     "Upload local files to the remote working directory. If a remote file of \
      the same name already exists, Dropbox will rename the upload unless the \
      the -f option is given, in which case the remote file will be \
      overwritten. If the -O option is given, the files will be uploaded to \
-     the given directory instead of the current directory.",
+     the given directory instead of the current directory. The -q option \
+     prevents progress from being printed.",
     lambda do |client, state, args|
-      flags = extract_flags(PUT.usage, args, '-f' => 0, '-O' => 1)
+      flags = extract_flags(PUT.usage, args, '-f' => 0, '-q' => 0, '-O' => 1)
 
       dest_index = flags.find_index('-O')
       dest_path = nil
@@ -390,7 +391,8 @@ module Commands
 
             # Chunked upload if file is more than 1M.
             if file.size > 1024 * 1024
-              data = chunked_upload(client, to_path, file)
+              data = chunked_upload(client, to_path, file,
+                                    flags.include?('-q'))
             else
               data = client.put_file(to_path, file)
             end
@@ -701,13 +703,15 @@ module Commands
   end
 
   # Attempts to upload a file to the server in chunks, displaying progress.
-  def self.chunked_upload(client, to_path, file)
+  def self.chunked_upload(client, to_path, file, quiet)
     uploader = DropboxClient::ChunkedUploader.new(client, file, file.size)
-    thread = Thread.new { monitor_upload(uploader, to_path) }
+    thread = quiet ? nil : Thread.new { monitor_upload(uploader, to_path) }
     loop_upload(uploader, thread)
     data = uploader.finish(to_path)
-    thread.join
-    print "\r" + (' ' * (18 + to_path.rpartition('/')[2].size)) + "\r"
+    if thread
+      thread.join
+      print "\r" + (' ' * (18 + to_path.rpartition('/')[2].size)) + "\r"
+    end
     data
   end
 
@@ -721,7 +725,7 @@ module Commands
       end
     end
   rescue Interrupt => error
-    monitor_thread.kill
+    monitor_thread.kill if monitor_thread
     raise error
   end
 
