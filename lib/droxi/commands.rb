@@ -357,15 +357,21 @@ module Commands
 
   # Upload a local file.
   PUT = Command.new(
-    'put [-f] [-q] [-O REMOTE_DIR] LOCAL_FILE...',
+    'put [-f] [-q] [-O REMOTE_DIR] [-t COUNT] LOCAL_FILE...',
     "Upload local files to the remote working directory. If a remote file of \
      the same name already exists, Dropbox will rename the upload unless the \
      the -f option is given, in which case the remote file will be \
      overwritten. If the -O option is given, the files will be uploaded to \
      the given directory instead of the current directory. The -q option \
-     prevents progress from being printed.",
+     prevents progress from being printed. The -t option specifies the \
+     number of tries in case of error. The default is 5; -t 0 will retry \
+     infinitely.",
     lambda do |client, state, args|
-      flags = extract_flags(PUT.usage, args, '-f' => 0, '-q' => 0, '-O' => 1)
+      flags = extract_flags(PUT.usage, args,
+                            '-f' => 0,
+                            '-q' => 0,
+                            '-O' => 1,
+                            '-t' => 1)
 
       dest_index = flags.find_index('-O')
       dest_path = nil
@@ -378,6 +384,9 @@ module Commands
           return
         end
       end
+
+      tries_index = flags.find_index('-t')
+      tries = tries_index ? flags[tries_index + 1].to_i : 5
 
       args.each do |arg|
         to_path = state.resolve_path(File.basename(arg))
@@ -392,7 +401,7 @@ module Commands
             # Chunked upload if file is more than 1M.
             if file.size > 1024 * 1024
               data = chunked_upload(client, to_path, file,
-                                    flags.include?('-q'))
+                                    flags.include?('-q'), tries)
             else
               data = client.put_file(to_path, file)
             end
@@ -661,17 +670,6 @@ module Commands
     (state.pwd = File.dirname(state.pwd)) until state.metadata(state.pwd)
   end
 
-  # def self.extract_flags(@usage, cmd, args, valid_flags)
-  #   tokens = args.take_while { |s| s[/^-\w+$/] }
-  #   args.shift(tokens.size)
-
-  #   # Process compound flags like -rf into -r, -f.
-  #   flags = tokens.join.chars.uniq.drop(1).map { |c| "-#{c}" }
-  #   invalid_flags = flags.reject { |f| valid_flags[f[1]] }
-  #   invalid_flags.each { |f| warn "#{cmd}: #{f}: invalid option" }
-  #   flags
-  # end
-
   # Removes flags (e.g. -f) from the +Array+ and returns an +Array+ of the
   # removed flags. Prints warnings if the flags are not in the given +String+
   # of valid flags (e.g. '-rf').
@@ -703,10 +701,11 @@ module Commands
   end
 
   # Attempts to upload a file to the server in chunks, displaying progress.
-  def self.chunked_upload(client, to_path, file, quiet)
+  def self.chunked_upload(client, to_path, file, quiet, tries)
     uploader = DropboxClient::ChunkedUploader.new(client, file, file.size)
     thread = quiet ? nil : Thread.new { monitor_upload(uploader, to_path) }
-    loop_upload(uploader, thread)
+    tries = -1 if tries == 0
+    loop_upload(uploader, thread, tries)
     data = uploader.finish(to_path)
     if thread
       thread.join
@@ -716,18 +715,21 @@ module Commands
   end
 
   # Continuously try to upload until successful or interrupted.
-  def self.loop_upload(uploader, monitor_thread)
-    while uploader.offset < uploader.total_size
+  # rubocop:disable Style/MethodLength
+  def self.loop_upload(uploader, monitor_thread, tries)
+    while tries != 0 && uploader.offset < uploader.total_size
       begin
         uploader.upload(1024 * 1024)
       rescue DropboxError => error
         puts "\n" + error.to_s
+        --tries
       end
     end
   rescue Interrupt => error
     monitor_thread.kill if monitor_thread
     raise error
   end
+  # rubocop:enable Style/MethodLength
 
   # Displays real-time progress for the a being uploaded.
   def self.monitor_upload(uploader, to_path)
