@@ -1,4 +1,10 @@
-require 'dropbox_sdk'
+begin
+  require 'dropbox_sdk'
+rescue LoadError
+  puts "droxi requires the dropbox-sdk gem."
+  puts "Run `gem install dropbox-sdk` to install it."
+  exit
+end
 require 'readline'
 
 require_relative 'droxi/commands'
