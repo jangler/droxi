@@ -263,7 +263,7 @@ module Commands
         state.local_oldpwd = Dir.pwd
         Dir.chdir(path)
       else
-        warn "lcd: #{args.first}: no such file or directory"
+        warn "lcd: #{args.first}: no such directory"
       end
     end
   )
@@ -400,7 +400,13 @@ module Commands
         to_path = state.resolve_path(File.basename(arg))
 
         try_and_handle(StandardError) do
-          File.open(File.expand_path(arg), 'rb') do |file|
+          path = File.expand_path(arg)
+          if File.directory?(path)
+            warn "put: #{arg}: cannot put directory"
+            next
+          end
+
+          File.open(path, 'rb') do |file|
             if flags.include?('-f') && state.metadata(to_path)
               client.file_delete(to_path)
               state.cache.remove(to_path)
