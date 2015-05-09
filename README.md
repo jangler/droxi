@@ -1,41 +1,43 @@
-droxi
+Droxi
 =====
+An `ftp`-like command-line [Dropbox](https://www.dropbox.com/) interface in
+[Ruby](https://www.ruby-lang.org/en/).
 
-ftp-like command-line [Dropbox](https://www.dropbox.com/) interface in
-[Ruby](https://www.ruby-lang.org/en/)
-
-installation
+Installation
 ------------
+Installation as Ruby gem:
 
     gem install droxi
 
-or
+Manual installation:
 
     git clone https://github.com/jangler/droxi.git
     cd droxi && rake && sudo rake install
 
-or
+If you use Arch Linux or a derivative, you may also install via the
+[AUR package](https://aur.archlinux.org/packages/droxi/).
 
-    wget https://aur.archlinux.org/packages/dr/droxi/droxi.tar.gz
-    tar -xzf droxi.tar.gz
-    cd droxi && makepkg -s && sudo pacman -U droxi-*.pkg.tar.xz
-
-features
+Features
 --------
-
-- interface inspired by
+- Interface based on
   [GNU coreutils](http://www.gnu.org/software/coreutils/),
   [GNU ftp](http://www.gnu.org/software/inetutils/), and
   [lftp](http://lftp.yar.ru/)
-- context-sensitive tab completion and path globbing
-- upload, download, organize, search, and share files
-- file revision control
-- man page and interactive help
+- Context-sensitive tab completion and path globbing
+- Upload, download, organize, search, and share files
+- File revision control
+- Man page and interactive help
 
-developer features
-------------------
+Examples
+--------
+Start interactive session:
 
-- extensive spec-style unit tests using
-  [MiniTest](https://github.com/seattlerb/minitest)
-- [RuboCop](https://github.com/bbatsov/rubocop)-approved
-- fully [RDoc](http://rdoc.sourceforge.net/) documented
+	droxi
+
+Invoke single command and exit:
+
+	droxi share Photos/pic.jpg
+
+Scripting:
+
+	echo -e "cd Photos \n put -f *jpg" | droxi
