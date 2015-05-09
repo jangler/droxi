@@ -35,6 +35,7 @@ class State
   # Return a +Hash+ of the Dropbox metadata for a file, or +nil+ if the file
   # does not exist.
   def metadata(path, require_contents = true)
+    path = path.downcase
     tokens = path.split('/').drop(1)
 
     (0..tokens.size).each do |i|
@@ -48,16 +49,18 @@ class State
 
   # Return an +Array+ of paths of files in a Dropbox directory.
   def contents(path)
+    path = path.downcase
     path = resolve_path(path)
     metadata(path)
     path = "#{path}/".sub('//', '/')
     @cache.keys.select do |key|
       key.start_with?(path) && key != path && !key.sub(path, '').include?('/')
-    end
+    end.map { |key| @cache[key]['path'] }
   end
 
   # Return +true+ if the Dropbox path is a directory, +false+ otherwise.
   def directory?(path)
+    path = path.downcase
     path = resolve_path(path)
     metadata(File.dirname(path))
     @cache.include?(path) && @cache[path]['is_dir']
@@ -99,7 +102,7 @@ class State
   # Recursively remove directory contents from metadata cache. Yield lines of
   # (error) output if a block is given.
   def forget_contents(partial_path)
-    path = resolve_path(partial_path)
+    path = resolve_path(partial_path).downcase
     if @cache.fetch(path, {}).include?('contents')
       @cache[path]['contents'].dup.each { |m| @cache.remove(m['path']) }
       @cache[path].delete('contents')
@@ -113,7 +116,7 @@ class State
   # Cache metadata for the remote file for a given path. Return +true+ if
   # successful, +false+ otherwise.
   def fetch_metadata(path)
-    data = @client.metadata(path)
+    data = @client.metadata(path.downcase)
     return true if data['is_deleted']
     @cache.add(data)
     true
@@ -124,8 +127,11 @@ class State
   # Return an +Array+ of file paths matching a glob pattern, or a GlobError if
   # no files were matched.
   def get_matches(pattern, path, preserve_root)
+    path = path.downcase
     dir = File.dirname(path)
-    matches = contents(dir).select { |entry| File.fnmatch(path, entry) }
+    matches = contents(dir).select do |entry|
+                File.fnmatch(path, entry.downcase)
+              end
     return GlobError.new(pattern) if matches.empty?
     return matches unless preserve_root
     prefix = pattern.rpartition('/')[0, 2].join

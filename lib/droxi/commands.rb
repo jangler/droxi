@@ -92,6 +92,7 @@ module Commands
       else
         path = state.resolve_path(args.first)
         if state.directory?(path)
+          puts path
           state.pwd = path
         else
           warn "cd: #{args.first}: no such directory"
