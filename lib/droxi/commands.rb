@@ -199,6 +199,7 @@ module Commands
     lambda do |_client, _state, args|
       extract_flags(HELP.usage, args, {})
       if args.empty?
+        puts 'Type "help <command>" for more info about a command:'
         Text.table(NAMES).each { |line| puts line }
       else
         cmd_name = args.first
