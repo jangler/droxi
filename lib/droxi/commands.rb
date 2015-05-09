@@ -388,6 +388,14 @@ module Commands
       tries_index = flags.find_index('-t')
       tries = tries_index ? flags[tries_index + 1].to_i : 5
 
+      # Glob arguments.
+      args.map! do |arg|
+        array = Dir.glob(File.expand_path(arg))
+        warn "put: #{arg}: no such file or directory" if array.empty?
+        array.map { |path| path.sub(File.dirname(path), File.dirname(arg)) }
+      end
+      args = args.reduce(:+)
+
       args.each do |arg|
         to_path = state.resolve_path(File.basename(arg))
 
