@@ -16,7 +16,7 @@ require_relative 'droxi/text'
 # Command-line Dropbox client module.
 module Droxi
   # Version number of the program.
-  VERSION = '0.2.3'
+  VERSION = '0.3.0'
 
   # Message to display when invoked with the --help option.
   HELP_TEXT =
