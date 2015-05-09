@@ -21,10 +21,9 @@ module Droxi
   # Message to display when invoked with the --help option.
   HELP_TEXT =
     "If you've installed this program using Rake or the AUR package, you " \
-    'should also have the man page installed on your system. `man droxi` ' \
-    "should do the trick. Otherwise--meaning you've probably installed it " \
-    "as a Ruby gem--you don't, which is a shame. In that case, you can " \
-    'access the man page at http://jangler.info/man/droxi in HTML form.'
+    'should also have the man page installed on your system. If you do not ' \
+    'have the man page, you can access it at http://jangler.info/man/droxi ' \
+    'in HTML form.'
 
   # Run the client.
   def self.run(args)
@@ -47,10 +46,12 @@ module Droxi
   # Handles command-line options extracted from an +Array+ and returns an
   # +Array+ of the extracted options.
   def self.handle_options(args)
-    options = args.take_while { |s| s.start_with?('--') }
+    options = args.take_while { |s| s.start_with?('-') }
     puts "droxi v#{VERSION}" if options.include?('--version')
-    Text.wrap(HELP_TEXT).each { |s| puts s } if options.include?('--help')
-    exit if %w(--help --version).any? { |s| options.include?(s) }
+    if options.include?('-h') || options.include?('--help')
+      Text.wrap(HELP_TEXT).each { |s| puts s }
+    end
+    exit if %w(-h --help --version).any? { |s| options.include?(s) }
     options
   end
 
