@@ -166,12 +166,13 @@ module Commands
 
   # Download remote files.
   GET = Command.new(
-    'get [-f] REMOTE_FILE...',
+    'get [-E] [-f] REMOTE_FILE...',
     "Download each specified remote file to a file of the same name in the \
      local working directory. Will refuse to overwrite existing files unless \
-     invoked with the -f option.",
+     invoked with the -f option. If the -E option is given, remove each \
+     remote file after successful download.",
     lambda do |client, state, args|
-      flags = extract_flags(GET.usage, args, '-f' => 0)
+      flags = extract_flags(GET.usage, args, '-E' => 0, '-f' => 0)
 
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
@@ -182,6 +183,10 @@ module Commands
             if flags.include?('-f') || !File.exist?(basename)
               contents = client.get_file(path)
               IO.write(basename, contents, mode: 'wb')
+              if flags.include?('-E')
+                client.file_delete(path)
+                state.cache.remove(path)
+              end
               puts "#{basename} <- #{path}"
             else
               warn "get: #{basename}: local file already exists"
@@ -359,17 +364,18 @@ module Commands
 
   # Upload a local file.
   PUT = Command.new(
-    'put [-f] [-q] [-O REMOTE_DIR] [-t COUNT] LOCAL_FILE...',
+    'put [-E] [-f] [-q] [-O REMOTE_DIR] [-t COUNT] LOCAL_FILE...',
     "Upload local files to the remote working directory. If a remote file of \
      the same name already exists, Dropbox will rename the upload unless the \
      the -f option is given, in which case the remote file will be \
-     overwritten. If the -O option is given, the files will be uploaded to \
-     the given directory instead of the current directory. The -q option \
-     prevents progress from being printed. The -t option specifies the \
-     number of tries in case of error. The default is 5; -t 0 will retry \
-     infinitely.",
+     overwritten. If the -E option is given, delete each local file after \
+     successful upload. If the -O option is given, the files will be uploaded \
+     to the given directory instead of the current directory. The -q option \
+     prevents progress from being printed. The -t option specifies the number \
+     of tries in case of error. The default is 5; -t 0 will retry infinitely.",
     lambda do |client, state, args|
       flags = extract_flags(PUT.usage, args,
+                            '-E' => 0,
                             '-f' => 0,
                             '-q' => 0,
                             '-O' => 1,
@@ -408,6 +414,8 @@ module Commands
             next
           end
 
+          success = false
+
           File.open(path, 'rb') do |file|
             if flags.include?('-f') && state.metadata(to_path)
               client.file_delete(to_path)
@@ -416,15 +424,18 @@ module Commands
 
             # Chunked upload if file is more than 1M.
             if file.size > 1024 * 1024
-              data = chunked_upload(client, to_path, file,
-                                    flags.include?('-q'), tries)
+              data, success = chunked_upload(client, to_path, file,
+                                             flags.include?('-q'), tries)
             else
               data = client.put_file(to_path, file)
+              success = true
             end
 
             state.cache.add(data)
             puts "#{arg} -> #{data['path']}"
           end
+
+          File.delete(path) if flags.include?('-E') && success
         end
       end
 
@@ -722,12 +733,13 @@ module Commands
     thread = quiet ? nil : Thread.new { monitor_upload(uploader, to_path) }
     tries = -1 if tries == 0
     loop_upload(uploader, thread, tries)
+    success = (uploader.offset == uploader.total_size)
     data = uploader.finish(to_path)
     if thread
       thread.join
       print "\r" + (' ' * (18 + to_path.rpartition('/')[2].size)) + "\r"
     end
-    data
+    [data, success]
   end
 
   # Continuously try to upload until successful or interrupted.
