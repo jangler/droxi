@@ -21,12 +21,16 @@ class State
   # +true+ if the client has requested to quit, +false+ otherwise.
   attr_accessor :exit_requested
 
+  # +true+ if the --debug option was given, +false+ otherwise.
+  attr_accessor :debug_enabled
+
   # Return a new application state that uses the given client. Starts at the
   # Dropbox root and with an empty cache.
   def initialize(client)
     @cache = Cache.new
     @client = client
     @exit_requested = false
+    @debug_enabled = false
     @pwd = '/'
     @oldpwd = Settings[:oldpwd] || '/'
     @local_oldpwd = Dir.pwd

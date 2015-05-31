@@ -2,7 +2,7 @@
 .SH NAME
 droxi \- ftp-like command-line interface to Dropbox
 .SH SYNOPSIS
-droxi [OPTION]... [COMMAND] [ARGUMENT]...
+droxi [OPTION]... [COMMAND [ARGUMENT]...]
 .SH DESCRIPTION
 A command-line Dropbox interface inspired by GNU coreutils, GNU ftp, and lftp.
 Features include smart tab completion, globbing, and interactive help. If
@@ -17,6 +17,9 @@ Pass a string to be executed by the local shell.
 .TP
 --debug
 Enable the 'debug' command for the session.
+.TP
+-f, --file FILE
+Specify the path of the config file used for the session.
 .TP
 -h, --help
 Print help information and exit.

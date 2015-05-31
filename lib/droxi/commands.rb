@@ -120,7 +120,7 @@ module Commands
      work unless the program was invoked with the --debug flag.",
     # rubocop:disable Lint/UnusedBlockArgument, Lint/Eval
     lambda do |client, state, args|
-      if ARGV.include?('--debug')
+      if state.debug_enabled
         begin
           p eval(args.join(' '))
           # rubocop:enable Lint/UnusedBlockArgument, Lint/Eval

@@ -5,6 +5,7 @@ rescue LoadError
   puts "Run `gem install dropbox-sdk` to install it."
   exit
 end
+require 'optparse'
 require 'readline'
 
 require_relative 'droxi/commands'
@@ -19,21 +20,25 @@ module Droxi
   VERSION = '0.3.1'
 
   # Message to display when invoked with the --help option.
-  HELP_TEXT =
-    "If you've installed this program using Rake or the AUR package, you " \
-    'should also have the man page installed on your system. If you do not ' \
-    'have the man page, you can access it at http://jangler.info/man/droxi ' \
-    'in HTML form.'
+  HELP_TEXT = [
+    'If invoked without arguments, run in interactive mode. If invoked with ' \
+    'arguments, parse the arguments as a command invocation, execute the ' \
+    'command, and exit.',
+    'If droxi was installed via Rake or the AUR package, the man page ' \
+    'should be installed as well. If not, the man page is accessible at ' \
+    'http://jangler.info/droxi in HTML form.',
+  ]
 
   # Run the client.
-  def self.run(args)
+  def self.run()
+    options = handle_options()
+    Settings.init
+
     client = DropboxClient.new(access_token)
     state = State.new(client)
+    state.debug_enabled = options[:debug]
 
-    options = handle_options(args)
-    args.shift(options.size)
-
-    args.empty? ? run_interactive(client, state) : invoke(args, client, state)
+    ARGV.empty? ? run_interactive(client, state) : invoke(ARGV, client, state)
   rescue DropboxAuthError => error
     warn error
     Settings.delete(:access_token)
@@ -43,15 +48,45 @@ module Droxi
 
   private
 
-  # Handles command-line options extracted from an +Array+ and returns an
-  # +Array+ of the extracted options.
-  def self.handle_options(args)
-    options = args.take_while { |s| s.start_with?('-') }
-    puts "droxi v#{VERSION}" if options.include?('--version')
-    if options.include?('-h') || options.include?('--help')
-      Text.wrap(HELP_TEXT).each { |s| puts s }
+  # Handles command-line options and returns a +Hash+ of the extracted options.
+  def self.handle_options()
+    options = {:debug => false}
+
+    parser = OptionParser.new do |opts|
+      opts.banner = "Usage: droxi [OPTION]... [COMMAND [ARGUMENT]...]"
+
+      opts.separator ""
+      HELP_TEXT.each do |text|
+        Text.wrap(text).each { |s| opts.separator(s) }
+        opts.separator ""
+      end
+      opts.separator "Options:"
+
+      opts.on("--debug", "Enable debug command") { options[:debug] = true }
+
+      opts.on("-f", "--file FILE", String,
+              "Specify path of config file") do |path|
+        Settings.config_file_path = path
+      end
+
+      opts.on("-h", "--help", "Print help information and exit") do
+        puts opts
+        exit
+      end
+
+      opts.on("--version", "Print version information and exit") do
+        puts "droxi v#{VERSION}"
+        exit
+      end
     end
-    exit if %w(-h --help --version).any? { |s| options.include?(s) }
+
+    begin
+      parser.parse!
+    rescue OptionParser::ParseError => err
+      warn(err)
+      exit(1)
+    end
+
     options
   end
 

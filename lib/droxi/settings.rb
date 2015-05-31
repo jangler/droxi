@@ -80,5 +80,8 @@ module Settings
     { key => value }
   end
 
-  self.settings = read
+  # Initialize settings by reading rc file.
+  def self.init
+    self.settings = read
+  end
 end
