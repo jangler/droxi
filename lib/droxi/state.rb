@@ -15,6 +15,12 @@ class State
   # The previous remote working directory path.
   attr_reader :oldpwd
 
+  # The actual/original command-line arguments
+  attr_reader :argv
+
+  # Whether the session is interactive.
+  attr_reader :interactive
+
   # The previous local working directory path.
   attr_accessor :local_oldpwd
 
@@ -26,7 +32,9 @@ class State
 
   # Return a new application state that uses the given client. Starts at the
   # Dropbox root and with an empty cache.
-  def initialize(client)
+  def initialize(client, interactive = true, argv = ARGV)
+    @interactive = interactive
+    @argv = argv
     @cache = Cache.new
     @client = client
     @exit_requested = false

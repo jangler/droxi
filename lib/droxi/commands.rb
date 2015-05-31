@@ -118,12 +118,12 @@ module Commands
     'debug STRING...',
     "Evaluates the given string as Ruby code and prints the result. Won't \
      work unless the program was invoked with the --debug flag.",
-    # rubocop:disable Lint/UnusedBlockArgument, Lint/Eval
-    lambda do |client, state, args|
+    # rubocop:disable Lint/Eval
+    lambda do |_client, state, args|
       if state.debug_enabled
         begin
           p eval(args.join(' '))
-          # rubocop:enable Lint/UnusedBlockArgument, Lint/Eval
+          # rubocop:enable Lint/Eval
         rescue SyntaxError => error
           warn error
         rescue => error
@@ -132,6 +132,20 @@ module Commands
       else
         warn 'debug: not enabled.'
       end
+    end
+  )
+
+  # Execute shell command.
+  EXEC = Command.new(
+    'exec STRING...',
+    "Executes the given string in the system shell. ! can be used as \
+     shorthand for exec, as in \"!ls\".",
+    lambda do |_client, state, args|
+      state.pwd = '/'
+      Settings.save
+      cmd = args.join(' ')
+      cmd += '; droxi REENTER ' + state.argv.join(' ') if state.interactive
+      Kernel.exec(cmd)
     end
   )
 
@@ -566,9 +580,8 @@ module Commands
 
   # Parse and execute a line of user input in the given context.
   def self.exec(input, client, state)
-    if input.start_with?('!')
-      shell(input[1, input.size - 1]) { |line| puts line }
-    elsif !input.empty?
+    unless input.empty?
+      input.sub!(/^!/, 'exec ')
       tokens = Text.tokenize(input)
       cmd = tokens.first
       args = tokens.drop(1)

@@ -30,14 +30,21 @@ module Droxi
 
   # Run the client.
   def self.run
+    reenter = ARGV[0] == 'REENTER'
+    ARGV.delete_if { |arg| arg == 'REENTER' }
+    original_argv = ARGV.dup
     options = handle_options
     Settings.init
 
     client = DropboxClient.new(access_token)
-    state = State.new(client)
+    state = State.new(client, ARGV.empty?, original_argv)
     state.debug_enabled = options[:debug]
 
-    ARGV.empty? ? run_interactive(client, state) : invoke(ARGV, client, state)
+    if ARGV.empty?
+      run_interactive(client, state, reenter)
+    else
+      invoke(ARGV, client, state)
+    end
   rescue DropboxAuthError => error
     warn error
     Settings.delete(:access_token)
@@ -130,9 +137,13 @@ module Droxi
   end
 
   # Run the client in interactive mode.
-  def self.run_interactive(client, state)
+  def self.run_interactive(client, state, reenter)
     info = client.account_info
-    puts "Logged in as #{info['display_name']} (#{info['email']})"
+    if reenter
+      state.pwd = state.oldpwd
+    else
+      puts "Logged in as #{info['display_name']} (#{info['email']})"
+    end
 
     init_readline(state)
     with_interrupt_handling { do_interaction_loop(client, state, info) }

@@ -36,6 +36,8 @@ module Complete
     index = tokens.drop_while { |token| token[/^-\w+$/] }.size
     if index <= 1
       'COMMAND'
+    elsif tokens[0].start_with?('!') || tokens[0].downcase == 'exec'
+      'LOCAL_FILE'
     elsif Commands::NAMES.include?(tokens.first)
       cmd = Commands.const_get(tokens.first.upcase.to_sym)
       cmd.type_of_arg(index - 2)
