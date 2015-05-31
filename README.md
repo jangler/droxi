@@ -28,6 +28,23 @@ Features
 - File revision control
 - Interactive help
 
+Usage
+-----
+	Usage: droxi [OPTION ...] [COMMAND [ARGUMENT ...]]
+
+	If invoked without arguments, run in interactive mode. If invoked with
+	arguments, parse the arguments as a command invocation, execute the
+	command, and exit.
+
+	For a list of commands, run `droxi help` or use the 'help' command in
+	interactive mode.
+
+	Options:
+			--debug                      Enable debug command
+		-f, --file FILE                  Specify path of config file
+		-h, --help                       Print help information and exit
+			--version                    Print version information and exit
+
 Examples
 --------
 Start interactive session:
