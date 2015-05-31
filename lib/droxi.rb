@@ -24,9 +24,8 @@ module Droxi
     'If invoked without arguments, run in interactive mode. If invoked with ' \
     'arguments, parse the arguments as a command invocation, execute the ' \
     'command, and exit.',
-    'If droxi was installed via Rake or the AUR package, the man page ' \
-    'should be installed as well. If not, the man page is accessible at ' \
-    'http://jangler.info/droxi in HTML form.'
+    "For a list of commands, run `droxi help` or use the 'help' command in " \
+    'interactive mode.'
   ]
 
   # Run the client.
@@ -53,7 +52,7 @@ module Droxi
     options = { debug: false }
 
     parser = OptionParser.new do |opts|
-      opts.banner = 'Usage: droxi [OPTION]... [COMMAND [ARGUMENT]...]'
+      opts.banner = 'Usage: droxi [OPTION ...] [COMMAND [ARGUMENT ...]]'
 
       opts.separator ''
       HELP_TEXT.each do |text|

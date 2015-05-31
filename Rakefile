@@ -37,7 +37,7 @@ task :doc do
   sh 'rdoc `find lib -name *.rb`'
 end
 
-desc 'build executable and man page'
+desc 'build executable'
 task :build do
   def build_exe
     filenames = `find lib -name *.rb`.split + ['bin/droxi']
@@ -50,64 +50,29 @@ task :build do
     File.chmod(0755, 'build/droxi')
   end
 
-  def date(gemspec)
-    require 'time'
-    Time.parse(gemspec[/\d{4}-\d{2}-\d{2}/]).strftime('%B %Y')
-  end
-
-  def commands
-    require_relative 'lib/droxi/commands'
-    Commands::NAMES.sort.map do |name|
-      cmd = Commands.const_get(name.upcase.to_sym)
-      ".TP\n#{cmd.usage}\n#{cmd.description}\n"
-    end.join.strip
-  end
-
-  def build_page
-    gemspec = IO.read('droxi.gemspec')
-    main = IO.read('lib/droxi.rb')
-
-    contents = format(IO.read('droxi.1.template'),
-                      date: date(gemspec),
-                      version: main[/\d+\.\d+\.\d+/],
-                      commands: commands)
-
-    IO.write('build/droxi.1', contents)
-  end
-
   Dir.mkdir('build') unless Dir.exist?('build')
   build_exe
-  build_page
-end
-
-desc 'build html version of man page'
-task :html do
-  sh 'groff -man -T html build/droxi.1 > build/droxi.html'
 end
 
 PREFIX = ENV['PREFIX'] || ENV['prefix'] || '/usr/local'
 BIN_PATH = "#{PREFIX}/bin"
-MAN_PATH = "#{PREFIX}/share/man/man1"
 
-desc 'install executable and man page'
+desc 'install executable'
 task :install do
   require 'fileutils'
   begin
     FileUtils.mkdir_p(BIN_PATH)
     FileUtils.cp('build/droxi', BIN_PATH)
-    FileUtils.mkdir_p(MAN_PATH)
-    FileUtils.cp('build/droxi.1', MAN_PATH)
   rescue => error
     puts error
   end
 end
 
-desc 'uninstall executable and man page'
+desc 'uninstall executable'
 task :uninstall do
   require 'fileutils'
   begin
     FileUtils.rm("#{BIN_PATH}/droxi")
-    FileUtils.rm("#{MAN_PATH}/droxi.1")
   rescue => error
     puts error
   end

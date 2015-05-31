@@ -26,7 +26,7 @@ Features
 - Context-sensitive tab completion and path globbing
 - Upload, download, organize, search, and share files
 - File revision control
-- Man page and interactive help
+- Interactive help
 
 Examples
 --------
