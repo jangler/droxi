@@ -51,6 +51,7 @@ module TestUtils
 
   # Returns a new +DropboxClient+ and +State+.
   def self.create_client_and_state
+    Settings.init
     client = DropboxClient.new(Settings[:access_token])
     [client, State.new(client)]
   end

@@ -8,7 +8,7 @@ module Text
   def self.table(items)
     return [] if items.empty?
     width = terminal_width
-    item_width = items.map { |item| item.size }.max + 2
+    item_width = items.map(&:size).max + 2
     items_per_line = [1, width / item_width].max
     format_table(items, item_width, items_per_line)
   end
@@ -16,7 +16,8 @@ module Text
   # Wrap a +String+ to fit the terminal and return an +Array+ of lines in the
   # result.
   def self.wrap(text)
-    width, position = terminal_width, 0
+    width = terminal_width
+    position = 0
     lines = []
     while position < text.size
       lines << get_wrap_segment(text[position, text.size], width)
@@ -52,7 +53,8 @@ module Text
 
   # Return an +Array+ of lines of the given items formatted as a table.
   def self.format_table(items, item_width, columns)
-    lines, items = [], items.dup
+    lines = []
+    items = items.dup
     until items.empty?
       lines << items.shift(columns).map { |item| item.ljust(item_width) }.join
     end

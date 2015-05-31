@@ -11,7 +11,7 @@ module Complete
     completion_options(type, tokens.last, state).map do |option|
       option.gsub(' ', '\ ').sub(/\\ $/, ' ')
         .split.drop(tokens.last.count(' ')).join(' ')
-        .sub(/[^\\\/]$/, '\0 ')
+        .sub(%r{[^\\/]$}, '\0 ')
     end
   end
 
@@ -121,7 +121,7 @@ module Complete
   # Return the name of the directory indicated by a path.
   def self.strip_filename(path)
     return path if path == '/'
-    path.end_with?('/') ? path.sub(/\/$/, '') : File.dirname(path)
+    path.end_with?('/') ? path.sub(%r{/$}, '') : File.dirname(path)
   end
 
   # Return a version of a path with .. and . resolved to appropriate

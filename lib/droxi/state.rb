@@ -57,9 +57,10 @@ class State
     path = resolve_path(path)
     metadata(path)
     path = "#{path}/".sub('//', '/')
-    @cache.keys.select do |key|
+    keys = @cache.keys.select do |key|
       key.start_with?(path) && key != path && !key.sub(path, '').include?('/')
-    end.map { |key| @cache[key]['path'] }
+    end
+    keys.map { |key| @cache[key]['path'] }
   end
 
   # Return +true+ if the Dropbox path is a directory, +false+ otherwise.
@@ -84,7 +85,7 @@ class State
     path.gsub!('//', '/')
     nil while path.sub!(%r{/([^/]+?)/\.\.}, '')
     nil while path.sub!('./', '')
-    path.sub!(/\/\.$/, '')
+    path.sub!(%r{/\.$}, '')
     path.chomp!('/')
     path.gsub!('//', '/')
     path.empty? ? '/' : path
@@ -134,8 +135,8 @@ class State
     path = path.downcase
     dir = File.dirname(path)
     matches = contents(dir).select do |entry|
-                File.fnmatch(path, entry.downcase)
-              end
+      File.fnmatch(path, entry.downcase)
+    end
     return GlobError.new(pattern) if matches.empty?
     return matches unless preserve_root
     prefix = pattern.rpartition('/')[0, 2].join

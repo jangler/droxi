@@ -75,7 +75,8 @@ module Settings
   # setting data.
   def self.parse(line)
     return warn_invalid(line) unless /^(.+?)=(.+)$/ =~ line
-    key, value = Regexp.last_match[1].to_sym, Regexp.last_match[2]
+    key = Regexp.last_match[1].to_sym
+    value = Regexp.last_match[2]
     return warn_invalid(line) unless [:access_token, :oldpwd].include?(key)
     { key => value }
   end

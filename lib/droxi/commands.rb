@@ -51,7 +51,7 @@ module Commands
     # command, +false+ otherwise.
     def num_args_ok?(num_args)
       args = @usage.split.drop(1)
-      min_args = args.reject { |arg| arg[/[\[\]]/] }.size
+      min_args = args.count { |arg| !arg[/[\[\]]/] }
       max_args = if args.any? { |arg| arg.end_with?('...') }
                    num_args
                  else
@@ -233,7 +233,6 @@ module Commands
       else
         try_and_handle(DropboxError) do
           client.revisions(path).each do |rev|
-
             size = rev['size'].sub(/ (.)B/, '\1').sub(' bytes', '').rjust(7)
             mtime = Time.parse(rev['modified'])
             current_year = (mtime.year == Time.now.year)
@@ -285,7 +284,8 @@ module Commands
     lambda do |_client, state, args|
       long = extract_flags(LS.usage, args, '-l' => 0).include?('-l')
 
-      files, dirs = [], []
+      files = []
+      dirs = []
       state.expand_patterns(args, true).each do |path|
         if path.is_a?(GlobError)
           warn "ls: #{path}: no such file or directory"
@@ -570,7 +570,8 @@ module Commands
       shell(input[1, input.size - 1]) { |line| puts line }
     elsif !input.empty?
       tokens = Text.tokenize(input)
-      cmd, args = tokens.first, tokens.drop(1)
+      cmd = tokens.first
+      args = tokens.drop(1)
       try_command(cmd, args, client, state)
     end
   end
@@ -700,7 +701,8 @@ module Commands
   # removed flags. Prints warnings if the flags are not in the given +String+
   # of valid flags (e.g. '-rf').
   def self.extract_flags(usage, args, flags)
-    extracted, index = [], 0
+    extracted = []
+    index = 0
     while index < args.size
       arg = args[index]
       extracted_flags =
@@ -742,7 +744,6 @@ module Commands
   end
 
   # Continuously try to upload until successful or interrupted.
-  # rubocop:disable Style/MethodLength
   def self.loop_upload(uploader, monitor_thread, tries)
     while tries != 0 && uploader.offset < uploader.total_size
       begin
@@ -756,7 +757,6 @@ module Commands
     monitor_thread.kill if monitor_thread
     raise error
   end
-  # rubocop:enable Style/MethodLength
 
   # Displays real-time progress for the a being uploaded.
   def self.monitor_upload(uploader, to_path)

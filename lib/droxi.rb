@@ -1,8 +1,8 @@
 begin
   require 'dropbox_sdk'
 rescue LoadError
-  puts "droxi requires the dropbox-sdk gem."
-  puts "Run `gem install dropbox-sdk` to install it."
+  puts 'droxi requires the dropbox-sdk gem.'
+  puts 'Run `gem install dropbox-sdk` to install it.'
   exit
 end
 require 'optparse'
@@ -26,12 +26,12 @@ module Droxi
     'command, and exit.',
     'If droxi was installed via Rake or the AUR package, the man page ' \
     'should be installed as well. If not, the man page is accessible at ' \
-    'http://jangler.info/droxi in HTML form.',
+    'http://jangler.info/droxi in HTML form.'
   ]
 
   # Run the client.
-  def self.run()
-    options = handle_options()
+  def self.run
+    options = handle_options
     Settings.init
 
     client = DropboxClient.new(access_token)
@@ -49,32 +49,32 @@ module Droxi
   private
 
   # Handles command-line options and returns a +Hash+ of the extracted options.
-  def self.handle_options()
-    options = {:debug => false}
+  def self.handle_options
+    options = { debug: false }
 
     parser = OptionParser.new do |opts|
-      opts.banner = "Usage: droxi [OPTION]... [COMMAND [ARGUMENT]...]"
+      opts.banner = 'Usage: droxi [OPTION]... [COMMAND [ARGUMENT]...]'
 
-      opts.separator ""
+      opts.separator ''
       HELP_TEXT.each do |text|
         Text.wrap(text).each { |s| opts.separator(s) }
-        opts.separator ""
+        opts.separator ''
       end
-      opts.separator "Options:"
+      opts.separator 'Options:'
 
-      opts.on("--debug", "Enable debug command") { options[:debug] = true }
+      opts.on('--debug', 'Enable debug command') { options[:debug] = true }
 
-      opts.on("-f", "--file FILE", String,
-              "Specify path of config file") do |path|
+      opts.on('-f', '--file FILE', String,
+              'Specify path of config file') do |path|
         Settings.config_file_path = path
       end
 
-      opts.on("-h", "--help", "Print help information and exit") do
+      opts.on('-h', '--help', 'Print help information and exit') do
         puts opts
         exit
       end
 
-      opts.on("--version", "Print version information and exit") do
+      opts.on('--version', 'Print version information and exit') do
         puts "droxi v#{VERSION}"
         exit
       end
