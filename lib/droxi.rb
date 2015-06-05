@@ -33,17 +33,17 @@ module Droxi
     reenter = ARGV[0] == 'REENTER'
     ARGV.delete_if { |arg| arg == 'REENTER' }
     original_argv = ARGV.dup
-    options = handle_options
+    options, args = handle_options
     Settings.init
 
     client = DropboxClient.new(access_token)
-    state = State.new(client, ARGV.empty?, original_argv)
+    state = State.new(client, args.empty?, original_argv)
     state.debug_enabled = options[:debug]
 
-    if ARGV.empty?
+    if args.empty?
       run_interactive(client, state, reenter)
     else
-      invoke(ARGV, client, state)
+      invoke(args, client, state)
     end
   rescue DropboxAuthError => error
     warn error
@@ -54,7 +54,8 @@ module Droxi
 
   private
 
-  # Handles command-line options and returns a +Hash+ of the extracted options.
+  # Handles command-line options and returns a +Hash+ of the extracted options,
+  # and an +Array+ of the remaining arguments.
   def self.handle_options
     options = { debug: false }
 
@@ -87,13 +88,15 @@ module Droxi
     end
 
     begin
-      parser.parse!
+      global_opts = ARGV.take_while { |arg| !Commands::NAMES.include?(arg) }
+      num_opts = global_opts.size
+      parser.parse!(global_opts)
     rescue OptionParser::ParseError => err
       warn(err)
       exit(1)
     end
 
-    options
+    [options, global_opts + ARGV.drop(num_opts)]
   end
 
   # Invokes a single command formed by joining an +Array+ of +String+ args.
