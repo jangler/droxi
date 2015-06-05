@@ -415,7 +415,7 @@ module Commands
         warn "put: #{arg}: no such file or directory" if array.empty?
         array.map { |path| path.sub(File.dirname(path), File.dirname(arg)) }
       end
-      args = args.reduce(:+)
+      args = args.reduce(:+) unless args.empty? # avoid making args nil
 
       args.each do |arg|
         to_path = state.resolve_path(File.basename(arg))

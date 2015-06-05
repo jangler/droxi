@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.name        = 'droxi'
   s.version     = IO.read('lib/droxi.rb')[/VERSION = '(.+)'/, 1]
-  s.date        = '2015-05-31'
+  s.date        = '2015-06-04'
   s.summary     = 'An ftp-like command-line interface to Dropbox'
   s.description = "A command-line Dropbox interface based on GNU coreutils, \
                    GNU ftp, and lftp. Features include smart tab completion, \
@@ -9,7 +9,7 @@ Gem::Specification.new do |s|
   s.authors     = ['Brandon Mulcahy']
   s.email       = 'brandon@jangler.info'
   s.files       = `git ls-files`.split
-  s.homepage    = 'https://github.com/jangler/droxi'
+  s.homepage    = 'http://jangler.info/code/droxi'
   s.license     = 'MIT'
 
   s.executables << 'droxi'
