@@ -47,9 +47,11 @@ module Droxi
     end
   rescue DropboxAuthError => error
     warn error
+    state.exit_status = 1
     Settings.delete(:access_token)
   ensure
     Settings.save
+    exit state.exit_status
   end
 
   private
@@ -153,6 +155,10 @@ module Droxi
 
     # Set pwd before exiting so that the oldpwd setting is saved to the pwd.
     state.pwd = '/'
+
+    # Set exit status to zero even if the last command had an error, since
+    # we're in interactive mode and quitting correctly.
+    state.exit_status = 0
   end
 
   def self.init_readline(state)

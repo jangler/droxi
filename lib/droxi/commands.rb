@@ -70,6 +70,7 @@ module Commands
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           warn "cat: #{path}: no such file or directory"
+          state.exit_status = 1
         else
           puts client.get_file(path)
         end
@@ -95,6 +96,7 @@ module Commands
           state.pwd = path
         else
           warn "cd: #{args.first}: no such directory"
+          state.exit_status = 1
         end
       end
     end
@@ -126,11 +128,14 @@ module Commands
           # rubocop:enable Lint/Eval
         rescue SyntaxError => error
           warn error
+          state.exit_status = 1
         rescue => error
           warn error.inspect
+          state.exit_status = 1
         end
       else
         warn 'debug: not enabled.'
+        state.exit_status = 1
       end
     end
   )
@@ -171,7 +176,10 @@ module Commands
         state.cache.clear
       else
         args.each do |arg|
-          state.forget_contents(arg) { |line| warn line }
+          state.forget_contents(arg) do |line|
+            warn line
+            state.exit_status = 1
+          end
         end
       end
     end
@@ -190,6 +198,7 @@ module Commands
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           warn "get: #{path}: no such file or directory"
+          state.exit_status = 1
         else
           basename = File.basename(path)
           try_and_handle(DropboxError) do
@@ -203,6 +212,7 @@ module Commands
               puts "#{basename} <- #{path}"
             else
               warn "get: #{basename}: local file already exists"
+              state.exit_status = 1
             end
           end
         end
@@ -228,6 +238,7 @@ module Commands
           Text.wrap(cmd.description).each { |line| puts line }
         else
           warn "help: #{cmd_name}: no such command"
+          state.exit_status = 1
         end
       end
     end
@@ -244,6 +255,7 @@ module Commands
       path = state.resolve_path(args.first)
       if !state.metadata(path) || state.directory?(path)
         warn "history: #{args.first}: no such file"
+        state.exit_status = 1
       else
         try_and_handle(DropboxError) do
           client.revisions(path).each do |rev|
@@ -283,6 +295,7 @@ module Commands
         Dir.chdir(path)
       else
         warn "lcd: #{args.first}: no such directory"
+        state.exit_status = 1
       end
     end
   )
@@ -303,6 +316,7 @@ module Commands
       state.expand_patterns(args, true).each do |path|
         if path.is_a?(GlobError)
           warn "ls: #{path}: no such file or directory"
+          state.exit_status = 1
         else
           type = state.directory?(path) ? dirs : files
           type << path
@@ -336,6 +350,7 @@ module Commands
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           warn "media: #{path}: no such file or directory"
+          state.exit_status = 1
         else
           try_and_handle(DropboxError) do
             url = client.media(path)['url']
@@ -402,6 +417,7 @@ module Commands
           state.pwd = state.resolve_path(dest_path)
         else
           warn "put: #{dest_path}: no such directory"
+          state.exit_status = 1
           return
         end
       end
@@ -413,6 +429,7 @@ module Commands
       args.map! do |arg|
         array = Dir.glob(File.expand_path(arg))
         warn "put: #{arg}: no such file or directory" if array.empty?
+        state.exit_status = 1
         array.map { |path| path.sub(File.dirname(path), File.dirname(arg)) }
       end
       args = args.reduce(:+) unless args.empty? # avoid making args nil
@@ -424,6 +441,7 @@ module Commands
           path = File.expand_path(arg)
           if File.directory?(path)
             warn "put: #{arg}: cannot put directory"
+            state.exit_status = 1
             next
           end
 
@@ -466,6 +484,7 @@ module Commands
       path = state.resolve_path(args.first)
       if !state.metadata(path) || state.directory?(path)
         warn "restore: #{args.first}: no such file"
+        state.exit_status = 1
       else
         try_and_handle(DropboxError) do
           client.restore(path, args.last)
@@ -484,9 +503,11 @@ module Commands
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           warn "rm: #{path}: no such file or directory"
+          state.exit_status = 1
         else
           if state.directory?(path) && !flags.include?('-r')
             warn "rm: #{path}: is a directory"
+            state.exit_status = 1
             next
           end
           try_and_handle(DropboxError) do
@@ -508,14 +529,17 @@ module Commands
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           warn "rmdir: #{path}: no such file or directory"
+          state.exit_status = 1
         else
           unless state.directory?(path)
             warn "rmdir: #{path}: not a directory"
+            state.exit_status = 1
             next
           end
           contents = state.metadata(path)['contents']
           if contents && !contents.empty?
             warn "rmdir: #{path}: directory not empty"
+            state.exit_status = 1
             next
           end
           try_and_handle(DropboxError) do
@@ -538,6 +562,7 @@ module Commands
       path = state.resolve_path(args.first)
       unless state.directory?(path)
         warn "search: #{args.first}: no such directory"
+        state.exit_status = 1
         return
       end
       query = args.drop(1).join(' ')
@@ -559,6 +584,7 @@ module Commands
       state.expand_patterns(args).each do |path|
         if path.is_a?(GlobError)
           warn "share: #{path}: no such file or directory"
+          state.exit_status = 1
         else
           try_and_handle(DropboxError) do
             url = client.shares(path)['url']
@@ -608,9 +634,11 @@ module Commands
         command.exec(client, state, *args) { |line| puts line }
       rescue UsageError => error
         warn "Usage: #{error}"
+        state.exit_status = 1
       end
     else
       warn "droxi: #{command_name}: command not found"
+      state.exit_status = 1
     end
   end
 
@@ -651,6 +679,7 @@ module Commands
     state.expand_patterns(paths, preserve_root).map do |item|
       if item.is_a?(GlobError)
         warn "#{cmd}: #{item}: no such file or directory" if output
+        state.exit_status = 1
         nil
       else
         item
@@ -701,6 +730,7 @@ module Commands
       end
     else
       warn "#{cmd}: #{args.last}: no such directory"
+      state.exit_status = 1
     end
   end
 

@@ -30,6 +30,9 @@ class State
   # +true+ if the --debug option was given, +false+ otherwise.
   attr_accessor :debug_enabled
 
+  # integer.
+  attr_accessor :exit_status
+
   # Return a new application state that uses the given client. Starts at the
   # Dropbox root and with an empty cache.
   def initialize(client, interactive = true, argv = ARGV)
@@ -42,6 +45,7 @@ class State
     @pwd = '/'
     @oldpwd = Settings[:oldpwd] || '/'
     @local_oldpwd = Dir.pwd
+    @exit_status = 0
   end
 
   # Return a +Hash+ of the Dropbox metadata for a file, or +nil+ if the file
