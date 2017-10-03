@@ -7,9 +7,9 @@ Gem::Specification.new do |s|
                    GNU ftp, and lftp. Features include smart tab completion, \
                    globbing, and interactive help.".squeeze(' ')
   s.authors     = ['Brandon Mulcahy']
-  s.email       = 'brandon@jangler.info'
+  s.email       = 'brandon@lightcones.net'
   s.files       = `git ls-files`.split
-  s.homepage    = 'http://jangler.info/code/droxi'
+  s.homepage    = 'https://github.com/jangler/droxi'
   s.license     = 'MIT'
 
   s.executables << 'droxi'
