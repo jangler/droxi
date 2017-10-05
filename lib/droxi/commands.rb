@@ -201,7 +201,7 @@ module Commands
           state.exit_status = 1
         else
           basename = File.basename(path)
-          try_and_handle(DropboxError) do
+          try_and_handle(DropboxApi::BasicError) do
             if flags.include?('-f') || !File.exist?(basename)
               contents = client.get_file(path)
               IO.write(basename, contents, mode: 'wb')
@@ -257,7 +257,7 @@ module Commands
         warn "history: #{args.first}: no such file"
         state.exit_status = 1
       else
-        try_and_handle(DropboxError) do
+        try_and_handle(DropboxApi::BasicError) do
           client.revisions(path).each do |rev|
             size = rev['size'].sub(/ (.)B/, '\1').sub(' bytes', '').rjust(7)
             mtime = Time.parse(rev['modified'])
@@ -352,7 +352,7 @@ module Commands
           warn "media: #{path}: no such file or directory"
           state.exit_status = 1
         else
-          try_and_handle(DropboxError) do
+          try_and_handle(DropboxApi::BasicError) do
             url = client.media(path)['url']
             puts "#{File.basename(path)} -> #{url}"
           end
@@ -368,7 +368,7 @@ module Commands
     lambda do |client, state, args|
       extract_flags(MKDIR.usage, args, {})
       args.each do |arg|
-        try_and_handle(DropboxError) do
+        try_and_handle(DropboxApi::BasicError) do
           path = state.resolve_path(arg)
           metadata = client.file_create_folder(path)
           state.cache.add(metadata)
@@ -486,7 +486,7 @@ module Commands
         warn "restore: #{args.first}: no such file"
         state.exit_status = 1
       else
-        try_and_handle(DropboxError) do
+        try_and_handle(DropboxApi::BasicError) do
           client.restore(path, args.last)
         end
       end
@@ -510,7 +510,7 @@ module Commands
             state.exit_status = 1
             next
           end
-          try_and_handle(DropboxError) do
+          try_and_handle(DropboxApi::BasicError) do
             client.file_delete(path)
             state.cache.remove(path)
           end
@@ -542,7 +542,7 @@ module Commands
             state.exit_status = 1
             next
           end
-          try_and_handle(DropboxError) do
+          try_and_handle(DropboxApi::BasicError) do
             client.file_delete(path)
             state.cache.remove(path)
           end
@@ -566,7 +566,7 @@ module Commands
         return
       end
       query = args.drop(1).join(' ')
-      try_and_handle(DropboxError) do
+      try_and_handle(DropboxApi::BasicError) do
         client.search(path, query).each { |result| puts result['path'] }
       end
     end
@@ -586,7 +586,7 @@ module Commands
           warn "share: #{path}: no such file or directory"
           state.exit_status = 1
         else
-          try_and_handle(DropboxError) do
+          try_and_handle(DropboxApi::BasicError) do
             url = client.shares(path)['url']
             puts "#{File.basename(path)} -> #{url}"
           end
@@ -696,7 +696,7 @@ module Commands
   # Copies or moves a file.
   def self.copy_move(method, args, flags, client, state)
     from_path, to_path = args.map { |p| state.resolve_path(p) }
-    try_and_handle(DropboxError) do
+    try_and_handle(DropboxApi::BasicError) do
       overwrite(to_path, client, state) if flags.include?('-f')
       metadata = client.send(method, from_path, to_path)
       state.cache.remove(from_path) if method == :file_move
@@ -791,7 +791,7 @@ module Commands
     while tries != 0 && uploader.offset < uploader.total_size
       begin
         uploader.upload(1024 * 1024)
-      rescue DropboxError => error
+      rescue DropboxApi::BasicError => error
         puts "\n" + error.to_s
         --tries
       end

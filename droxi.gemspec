@@ -13,6 +13,6 @@ Gem::Specification.new do |s|
   s.license     = 'MIT'
 
   s.executables << 'droxi'
-  s.add_runtime_dependency 'dropbox-sdk', '~> 1.6', '>= 1.6.4'
+  s.add_runtime_dependency 'dropbox-api', '~> 0.1', '>= 0.1.10'
   s.required_ruby_version = '>= 2.0.0'
 end

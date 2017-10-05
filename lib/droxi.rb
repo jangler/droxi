@@ -1,8 +1,8 @@
 begin
-  require 'dropbox_sdk'
+  require 'dropbox_api'
 rescue LoadError
-  puts 'droxi requires the dropbox-sdk gem.'
-  puts 'Run `gem install dropbox-sdk` to install it.'
+  puts 'droxi requires the dropbox-api gem.'
+  puts 'Run `gem install dropbox-api` to install it.'
   exit
 end
 require 'optparse'
@@ -36,7 +36,7 @@ module Droxi
     options, args = handle_options
     Settings.init
 
-    client = DropboxClient.new(access_token)
+    client = DropboxApi::Client.new(access_token)
     state = State.new(client, args.empty?, original_argv)
     state.debug_enabled = options[:debug]
 
@@ -45,13 +45,9 @@ module Droxi
     else
       invoke(args, client, state)
     end
-  rescue DropboxAuthError => error
-    warn error
-    state.exit_status = 1
-    Settings.delete(:access_token)
-  ensure
+
     Settings.save
-    exit state.exit_status
+    exit (state && state.exit_status) || 1
   end
 
   private
@@ -117,14 +113,13 @@ module Droxi
     app_key = '5sufyfrvtro9zp7'
     app_secret = 'h99ihzv86jyypho' # Not so secret, is it?
 
-    flow = DropboxOAuth2FlowNoRedirect.new(app_key, app_secret)
-
-    authorize_url = flow.start
-    code = get_auth_code(authorize_url)
+    authenticator = DropboxApi::Authenticator.new(app_key, app_secret)
+    code = get_auth_code(authenticator.authorize_url)
 
     begin
-      Settings[:access_token] = flow.finish(code).first
-    rescue DropboxError
+      auth_bearer = authenticator.get_token(code)
+      Settings[:access_token] = auth_bearer.token
+    rescue DropboxApi::BasicError
       puts 'Invalid authorization code.'
     end
   end
@@ -137,21 +132,21 @@ module Droxi
   end
 
   # Return a prompt message reflecting the current state of the application.
-  def self.prompt(info, state)
-    "\rdroxi #{info['email']}:#{state.pwd}> "
+  def self.prompt(account, state)
+    "\rdroxi #{account.email}:#{state.pwd}> "
   end
 
   # Run the client in interactive mode.
   def self.run_interactive(client, state, reenter)
-    info = client.account_info
+    account = client.get_current_account()
     if reenter
       state.pwd = state.oldpwd
     else
-      puts "Logged in as #{info['display_name']} (#{info['email']})"
+      puts "Logged in as #{account.name.display_name} (#{account.email})"
     end
 
     init_readline(state)
-    with_interrupt_handling { do_interaction_loop(client, state, info) }
+    with_interrupt_handling { do_interaction_loop(client, state, account) }
 
     # Set pwd before exiting so that the oldpwd setting is saved to the pwd.
     state.pwd = '/'
@@ -183,9 +178,9 @@ module Droxi
 
   # Run the main loop of the program, getting user input and executing it as a
   # command until an getting input fails or an exit is requested.
-  def self.do_interaction_loop(client, state, info)
+  def self.do_interaction_loop(client, state, account)
     until state.exit_requested
-      line = Readline.readline(prompt(info, state), true)
+      line = Readline.readline(prompt(account, state), true)
       break unless line
       with_interrupt_handling { Commands.exec(line.chomp, client, state) }
     end
