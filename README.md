@@ -1,7 +1,8 @@
 Droxi
 =====
 An `ftp`-like command-line [Dropbox](https://www.dropbox.com/) interface in
-[Ruby](https://www.ruby-lang.org/en/).
+[Ruby](https://www.ruby-lang.org/en/). **Due to changes in the Dropbox API,
+this software is no longer functional and is not maintained.**
 
 Installation
 ------------
